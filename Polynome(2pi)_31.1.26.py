@@ -161,11 +161,11 @@ for j in range (1,29):
     if flag==0: print('{0:10}{1:5}{2:20}{3:16}{4:8}'.format(Obj[j][0],"mean  ", Obj[j][1], "  ", " only with i4 > 1"), file=f)
 
     x_a= 0; x_m= i_T*1/5;  plt.ylabel('Energy in $m_e$'); plt.xlabel('N');  plt.xlim(-10000, i_T+30000); 
-    i2 = float(2*pi)**2; i3 = float(2*pi)**3; i4 = float(2*pi)**4; i5 = 1/2*(i4+i3+i2); i6 = i4+i3+i2; i7=5/2*i4-3/2*i3-1/2*i3; i8=2*i4+3*i3+2*i3; i9=2*i4+2*i3+2*i3; i10=3/2*i4+1/2*i3-1/2*i3;  
+    i2 = float(2*pi)**2; i3 = float(2*pi)**3; i4 = float(2*pi)**4; i5 = 1/2*(i4+i3+i2); i6 = i4+i3+i2; i7=5/2*i4-3/2*i3-1/2*i3; i8=3/2*i4+i3+i3; i9=2*i4+2*i3+2*i3; i10=3/2*i4+1/2*i3-1/2*i3;  
     if Op in [1] : plt.plot([x_a,x_m],[i4,i4],'k',linewidth=1); plt.text(x_a,i4+15,'$(2\pi)^4$', fontsize=12, color='blue')
     if Op in [5] : plt.plot([x_a,x_m],[i7,i7],'k',linewidth=1); plt.text(x_a,i7+15, '$5/2(2\pi)^4-3/2(2\pi)^3-1/2(2\pi)^2$', fontsize=12, color='blue')
-    if Op in [5] : plt.plot([x_a,2*x_m],[i8,i8],'k',linewidth=1); plt.text(x_a,i8+15,'$2/2(2\pi)^4+3(2\pi)^3+3(2\pi)^2', fontsize=12, color='blue')
-    if Op in [5] : plt.plot([x_a,3*x_m],[i9,i9],'k',linewidth=1); plt.text(x_a,i9+15,'$2(2\pi)^4+2(2\pi)^3+2(2\pi)^2$', fontsize=12, color='blue')
+    if Op in [5] : plt.plot([x_a,2*x_m],[i8,i8],'k',linewidth=1); plt.text(x_a,i8+15,'$3/2(2\pi)^4+(2\pi)^3+(2\pi)^2=', fontsize=12, color='blue')
+    #if Op in [5] : plt.plot([x_a,3*x_m],[i9,i9],'k',linewidth=1); plt.text(x_a,i9+15,'$2(2\pi)^4+2(2\pi)^3+2(2\pi)^2$', fontsize=12, color='blue')
     if Op in [5] : plt.plot([x_a,3*x_m],[i10,i10],'k',linewidth=1); plt.text(x_a,i10+15,'$3/2(2\pi)^4+1/2(2\pi)^3-1/2(2\pi)^2$', fontsize=12, color='blue')
     if Op in [1,2] :plt.plot([x_a,x_m],[i3,i3],'k',linewidth=1); plt.text(x_a,i3+15,'$(2\pi)^3$', fontsize=12, color='blue')
     if Op in [1,2,3]: plt.plot([x_a,x_m],[i2,i2],'k',linewidth=1); plt.text(x_a,i2+15,'$(2\pi)^2$', fontsize=12, color='blue')
