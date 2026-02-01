@@ -3,7 +3,7 @@ import cmath
 import matplotlib.colors as mcolors
 import numpy as np
                     
-Op = 5;    #  Selection of 5 plots with different resolutions and energy ranges. Option 1
+Op = 1;    #  Selection of 5 plots with different resolutions and energy ranges. Option 1
 
 if Op==1: J4=1; J3=1; J2=2; f_="Polynom 112 30.1.26.txt"; f_png = "Polynom 112 30.1.28.png" # slow (20 minutes)
 if Op==2: J4=0; J3=1; J2=1; f_="Polynom 011 30.1.26.txt"; f_png = "Polynom 011 30.1.26.png" # fast, for u, d, s, pion, muon E<300
