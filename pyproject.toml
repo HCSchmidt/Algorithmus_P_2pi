@@ -14,10 +14,11 @@ authors = [{name = "HCSchmidt"}]
 dependencies = [
   "numpy>=1.26",
   "matplotlib>=3.8",
+  "pandas>=2.2",
 ]
 
 [project.scripts]
-polynome2pi = "polynome2pi.__main__:main"
+polynome2pi = "polynome2pi.polynome_2pi:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
