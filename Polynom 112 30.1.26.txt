@@ -287,6 +287,6 @@ c         mean  2485(-39)(39)                        only with i4 > 1
 Tau       mean  3477.23(23)                          only with i4 > 1
 D 0       mean  3649.38(10)                          only with i4 > 1
 D +       mean  3658.81(10)                          only with i4 > 1
-Deuterium mean  3670.4829677(11)                     only with i4 > 1
+Deuteron  mean  3670.4829677(11)                     only with i4 > 1
 DS +      mean  3851.94(13)                          only with i4 > 1
 Higgs     mean  244830(210)                          only with i4 > 1

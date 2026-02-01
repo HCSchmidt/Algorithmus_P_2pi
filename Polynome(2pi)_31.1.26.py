@@ -154,7 +154,7 @@ for j in range (1,29):
             plt.text(i_Emin[j,m] + 10000 * X[j], E_mean + Y, Obj[j][9],fontsize=fs, color=F[j]); flag = 2 
  
     if j > 1 and m == 511 and i_Emax[j,516] > 0:
-        D_i_c = round( float(i_Emax[j,0])*100/i_Emax[j,516],5);   D = str(D_i_c);D_i_c_[j]="".rjust(10-len(D)," ") + D 
+        D_i_c = round( float(i_Emax[j,0])*100/i_Emax[j,516],5);   D = str(D_i_c); D_i_c_[j]="".rjust(10-len(D)," ") + D + " %"
         print('{0:10}{1:5}{2:20}{3:15}{4:8}{5:5}{6:8}{7:9}{8:10}{9:2}'.format("","total","","             Σ ∆i",i_Emax[j,0],\
                            "  Cts",i_Emax[j,516], "  ∆i/(2pi)", D_i_c," %",'\n'),file=f);      
 
@@ -173,7 +173,7 @@ for j in range (1,29):
     if Op in [1]: plt.plot([x_a,x_m],[i6,i6],'k',linewidth=1); plt.text(x_a,i6+15,'$(2\pi)^4+(2\pi)^3+(2\pi)^2$', fontsize=12,color='blue')
 
 if Op==1:                               # Legend for u,d,s  i4 <= 1   E<2000              
-    x_a = i_T *0.67; dx = i_T*0.08; i = -50               
+    x_a = i_T *0.65; dx = i_T*0.08; i = -20               
     for j in [1,2,3,4,5,6,7,8,9,10,15,16,17,18,19]:        
         particle = str(Obj[j][9])
         plt.text(x_a, i, Obj[j][0]); plt.text(x_a+dx,i,particle,color=F[j]);
@@ -195,7 +195,12 @@ if Op==3:                               # Legend for u,d,s
     for j in [1,2,3,4,5,6,7]:        
         particle = str(Obj[j][9]) 
         plt.text(x_a, i, Obj[j][0]); plt.text(x_a+dx,i,particle,color=F[j])
-        plt.text(x_a+2*dx, i, i_Emax[j,0]); plt.text(x_a+3*dx, i, D_i_c_[j])      
+        
+        D=D_i_c_[j]
+        plt.text(x_a+2*dx, i, i_Emax[j,0]); plt.text(x_a+3*dx, i, D)
+
+        print(D_i_c_[j])                                                         
+                                                          
         i+= 5
     plt.text(x_a+2*dx, i, "  ∆i  "); plt.text(x_a+3*dx, i, " ∆i/(2pi) ")   
 
