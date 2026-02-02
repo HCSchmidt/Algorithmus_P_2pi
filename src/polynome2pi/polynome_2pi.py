@@ -290,6 +290,12 @@ def main(argv=None):
         ys_by_j_local = ys_by_j
         grey_segments_local = grey_segments
         Energie_func = Energie  # local bind function lookup too
+        
+        is_minimal = (sector is ScanSector.minimal)
+        is_light = (sector is ScanSector.light)
+        is_broad = (sector is ScanSector.broad)
+        is_nucleon = (sector is ScanSector.nucleon)
+        is_heavy = (sector is ScanSector.heavy)
 
         for i5 in [0]:
             for i4 in range(-2 * config.J4, 2 * config.J4 + 1):
@@ -316,9 +322,9 @@ def main(argv=None):
                                         ct += 1
                                         Cnt[mmax] = ct
 
-                                        if sector is ScanSector.heavy and E0 < 1500:
+                                        if is_heavy and E0 < 1500:
                                             continue
-                                        if sector is ScanSector.nucleon and (E0 < 1836 or E0 > 1839):
+                                        if is_nucleon and (E0 < 1836 or E0 > 1839):
                                             continue
 
                                         i_T += 1
@@ -467,23 +473,23 @@ def main(argv=None):
                 )
 
                 if flag == 1:
-                    if sector == ScanSector.broad:
+                    if is_broad:
                         X = [0, 4, 7, 9, 6, 9, 5, 13, -21, -12, 5, -19, 6, -28, -17, -21, -13, -20, -12, -10, -37, -9, -5.5, -22, -11, 0, 0, 0]
                         Y = -20
                         fs = 12
-                    if sector == ScanSector.light:
+                    if is_light:
                         X = [0, 1.2, 2.5, 3, 1, 1, 0.7, 1]
                         Y = -4
                         fs = 16
-                    if sector == ScanSector.minimal:
+                    if is_minimal:
                         X = [0, 0.2, 0.2, 0.2]
                         Y = -1
                         fs = 16
-                    if sector == ScanSector.nucleon:
+                    if is_nucleon:
                         X = [0, 2, 4, 5, 3, 4, 4, 8, -13, -7, 2, -11, 2, -14, -7, -11, -7, -12, -8, -3, -0, -0, -0, -22, -11, 0, 0, 0]
                         Y = -0
                         fs = 16
-                    if sector == ScanSector.heavy:
+                    if is_heavy:
                         X = [0, 5, 10, 15, 20, 5, 9, 30, -35, -20, 7, -40, 25, 15, 4, 35, 20, -13, -10, -7, 20, 20, 10, -10, -10, -20, 0, 0, 0]
                         X[j] *= 2
                         Y = -50
@@ -553,15 +559,14 @@ def main(argv=None):
                 plt.text(x_a, i8_ + 15, r"$3/2(2\pi)^4+(2\pi)^3+(2\pi)^2=", fontsize=12, color="blue")
                 plt.plot([x_a, 3 * x_m], [i10_, i10_], "k", linewidth=1)
                 plt.text(x_a, i10_ + 15, r"$3/2(2\pi)^4+1/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
-            if sector in [ScanSector.broad, ScanSector.light]:
+            if is_broad or is_light:
                 plt.plot([x_a, x_m], [i3_, i3_], "k", linewidth=1)
                 plt.text(x_a, i3_ + 15, r"$(2\pi)^3$", fontsize=12, color="blue")
-            if sector in [ScanSector.broad, ScanSector.light, ScanSector.minimal]:
+            if is_light or is_broad or is_minimal:
                 plt.plot([x_a, x_m], [i2_, i2_], "k", linewidth=1)
                 plt.text(x_a, i2_ + 15, r"$(2\pi)^2$", fontsize=12, color="blue")
 
-        # Legend blocks unchanged (same as before)
-        if sector is ScanSector.broad:
+        if is_broad:
             x_a = i_T * 0.65
             dx = i_T * 0.08
             i = -20
@@ -575,7 +580,7 @@ def main(argv=None):
             plt.text(x_a + 2 * dx, i, "  ∆i  ")
             plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
 
-        if sector is ScanSector.light:
+        if is_light:
             x_m = i_T * 1 / 5
             plt.xlim(-10000, i_T + 30000)
             x_a = i_T * 0.70
@@ -591,7 +596,7 @@ def main(argv=None):
             plt.text(x_a + 2 * dx, i, "  ∆i  ")
             plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
 
-        if sector is ScanSector.minimal:
+        if is_minimal:
             x_m = i_T * 1 / 5
             plt.xlim(-1000, i_T + 10000)
             x_a = i_T * 0.89
@@ -611,7 +616,7 @@ def main(argv=None):
             plt.text(x_a + 2 * dx, i, "  ∆i  ")
             plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
 
-        if sector is ScanSector.nucleon:
+        if is_nucleon:
             x_m = i_T * 1 / 5
             plt.xlim(0, i_T)
             fs = 14
@@ -630,7 +635,7 @@ def main(argv=None):
                 plt.text(x_a + 3 * dx, i, D_i_c_[j])
                 i += 20
 
-        if sector == ScanSector.heavy:
+        if is_heavy:
             x_a = i_T * 0.65
             dx = i_T * 0.085
             i = 1500
