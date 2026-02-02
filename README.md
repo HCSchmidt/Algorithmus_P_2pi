@@ -10,9 +10,9 @@ An algorithm was developed that describes the rest masses and standard deviation
 ### Polynom 111 (nucleons section)
 ![Polynom 111 (nucleons section)](results/Polynom_111_nucleon.png)
 
-### Polynom 111 (heavy section)
+### Polynom 222 (heavy section)
 
-![Polynom 111 (heavy section)](results/Polynom_222_heavy.png)
+![Polynom 222 (heavy section)](results/Polynom_222_heavy.png)
 
 More Info can be found here: https://www.physics-beyond-standard-model.com/
 
