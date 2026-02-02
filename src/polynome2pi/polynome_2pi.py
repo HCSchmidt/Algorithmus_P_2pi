@@ -13,31 +13,10 @@ from .engine import run_scan
 from .constants import build_particle_table
 from .plotting import add_reference_lines, draw_points, add_legend_panels
 from .report import write_report_and_labels
+from .initialize import init_result_arrays, init_plot_buffers
+
 RESULTS_DIR = Path("results")
 RESULTS_DIR.mkdir(exist_ok=True)
-
-
-
-def allocate_result_arrays():
-    D_i_N = [0.0] * 300
-    D_i_c_ = [""] * 35
-    Cnt = [0] * 520
-
-    Emax = np.zeros((35, 520), dtype=float)
-    Emin = np.zeros((35, 520), dtype=float)
-    i_Emax = np.zeros((35, 520), dtype=int)
-    i_Emin = np.zeros((35, 520), dtype=int)
-    Dmax = np.zeros((35, 520, 7), dtype=int)
-    Dmin = np.zeros((35, 520, 7), dtype=int)
-
-    return D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin
-
-
-def init_plot_buffers():
-    xs_by_j = [[] for _ in range(27)]
-    ys_by_j = [[] for _ in range(27)]
-    grey_segments = []
-    return xs_by_j, ys_by_j, grey_segments
 
 def main(argv=None):
     start_time_stamp = datetime.datetime.now()
@@ -49,7 +28,7 @@ def main(argv=None):
 
     # data
     Obj, obj_E, obj_min, obj_max = build_particle_table()
-    D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin = allocate_result_arrays()
+    D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin = init_result_arrays()
     xs_by_j, ys_by_j, grey_segments = init_plot_buffers()
 
     # scan
