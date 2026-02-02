@@ -1,6 +1,8 @@
+import os
 import argparse
 import cmath
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -10,6 +12,8 @@ from matplotlib.collections import LineCollection
 import matplotlib.colors as mcolors
 import datetime
 
+RESULTS_DIR = Path("results")
+RESULTS_DIR.mkdir(exist_ok=True)
 
 pi = cmath.pi
 
@@ -137,7 +141,7 @@ def main(argv=None):
 
     DEBUG = False
 
-    with open(f"{config.name}.txt", "w", encoding="utf8") as f:
+    with open(os.path.join(RESULTS_DIR, f"{config.name}.txt"), "w", encoding="utf8") as f:
         i_T = 0
         i_T1 = 0
 
@@ -618,12 +622,13 @@ def main(argv=None):
 
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
-    fig.savefig(f"{config.name}.png", dpi=100)
+    
+    fig.savefig(os.path.join(RESULTS_DIR, f"{config.name}.png"), dpi=100)
+    
     end_time_stamp = datetime.datetime.now()
-    
     delta = end_time_stamp - start_time_stamp
-    
     print(f"took {delta.seconds} seconds")
+    
     if not no_show:
         plt.show()
 
