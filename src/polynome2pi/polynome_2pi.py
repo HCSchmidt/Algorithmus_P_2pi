@@ -8,7 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import matplotlib.colors as mcolors
-
+import datetime
 
 pi = cmath.pi
 
@@ -129,6 +129,8 @@ def select_preset(op: int):
 
 
 def main(argv=None):
+    start_time_stamp = datetime.datetime.now()
+    
     Op, no_show = parse_args(argv)
     config = select_preset(Op)
 
@@ -597,9 +599,19 @@ def main(argv=None):
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
     fig.savefig(f"{config.name}.png", dpi=100)
+    
+    end_time_stamp = datetime.datetime.now()
+    
+    delta = end_time_stamp - start_time_stamp
+    
+    print(f"{delta.seconds} seconds")
     if not no_show:
         plt.show()
 
 
 if __name__ == "__main__":
+    a = datetime.datetime.now()
+
     main()
+    
+
