@@ -4,7 +4,7 @@ An algorithm was developed that describes the rest masses and standard deviation
 
 ## Examplary result (Option 5 – Tau)
 
-![Polynom 222 (including tau)](results/Polynom_222.png)
+![Polynom 222 (including tau)](results/Polynom_222_Tau.png)
 
 More Info can be found here: https://www.physics-beyond-standard-model.com/
 
