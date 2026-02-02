@@ -57,11 +57,6 @@ def parse_args(argv=None):
         help="Do not open a GUI window; still save the PNG output",
     )
 
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Print extra debug output (slow).",
-    )
 
     return parser.parse_args(argv)
 
@@ -325,7 +320,6 @@ def run_scan(
     config: PolynomeConfig,
     is_heavy: bool,
     is_nucleon: bool,
-    debug: bool,
     obj_E,
     obj_min,
     obj_max,
@@ -358,9 +352,6 @@ def run_scan(
             i3h = 0.5 * i3
             for i2 in range(-2 * config.J2, 2 * config.J2 + 1):
                 i2h = 0.5 * i2
-
-                if debug:
-                    print("i4", i4, "i3", i3, "i2", i2, "i_T1", i_T1)
 
                 for i1 in range(-6, 7):
                     i1h = 0.5 * i1
@@ -723,7 +714,6 @@ def main(argv=None):
     sector = args.sector
     config = select_preset_by_sector(sector)
     no_show = args.no_show
-    DEBUG = args.debug
 
     # hoist sector checks (avoid Enum comparisons in the hot loop)
     is_heavy = (sector is ScanSector.heavy)
@@ -748,7 +738,6 @@ def main(argv=None):
             config=config,
             is_heavy=is_heavy,
             is_nucleon=is_nucleon,
-            debug=DEBUG,
             obj_E=obj_E,
             obj_min=obj_min,
             obj_max=obj_max,
