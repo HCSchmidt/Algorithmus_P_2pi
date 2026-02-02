@@ -1,9 +1,15 @@
-import matplotlib.pyplot as plt  
+import matplotlib.pyplot as plt
 import cmath
 import matplotlib.colors as mcolors
 import numpy as np
-                    
+import pandas as pd
+import argparse
 
+pi = cmath.pi; 
+
+E = [0]*10; 
+
+g = [[0]*10]*10; 
 
 def Energie(i4,i3,i2,i1,i0,i_1,C):
     g[2][4]=i4; g[2][3]=i3; g[2][2]=i2; g[1][1]=i1; g[1][0]=i0; g[1][-1]=i_1
@@ -36,20 +42,32 @@ def Energie(i4,i3,i2,i1,i0,i_1,C):
     E[0] += E[1] + E[2] + E[3] + E[4] + E[5] + E[6] + E[7]
     return E[0]
 
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="Run P(2π) polynomial scan and plot results")
+    parser.add_argument(
+        "--op",
+        type=int,
+        default=2,
+        help="Plot/scan preset option (1-5). Default: 2",
+    )
+    parser.add_argument(
+        "--no-show",
+        action="store_true",
+        help="Do not open a GUI window; still save the PNG output",
+    )
+    args = parser.parse_args(argv)
 
-def main():
+    op = args.op
+    no_show = args.no_show
+    
+    return op, no_show
+    
+    
 
-    global pi 
-    pi = cmath.pi; 
+def main(argv=None):
     
-    global E 
-    E = [0]*10; 
-    
-    global g 
-    g = [[0]*10]*10; 
-    
-    Op = 2;    #  Selection of 5 plots with different resolutions and energy ranges. Option 1
-
+    Op, no_show = parse_args(argv)
+        
     if Op==1: J4=1; J3=1; J2=2; f_="Polynom 112 30.1.26.txt"; f_png = "Polynom 112 30.1.28.png" # slow (20 minutes)
     if Op==2: J4=0; J3=1; J2=1; f_="Polynom 011 30.1.26.txt"; f_png = "Polynom 011 30.1.26.png" # fast, for u, d, s, pion, muon E<300
     if Op==3: J4=0; J3=0; J2=1; f_="Polynom 001  30.1.26.txt"; f_png = 'Polynom 001 30.1.26.png' # fast, for u , d
@@ -251,87 +269,9 @@ def main():
     fig = plt.gcf()
     fig.set_size_inches(10, 6)                     
     fig.savefig(f_png, dpi=100)   # after several minutes
-    plt.show()
-    exit()
+    if not no_show:
+        plt.show()
 
-    #  https://github.com/users/HCSchmidt/projects/1
-    #  https://github.com/HCSchmidt/Algorithmus_P_2pi
-
-    #  plt.text(i_Emin[j,m] , E_mean-20," ".ljust(X[j]) + Obj[j][9]+ " ".rjust(-X[j]),color=F[j],fontsize=12); flag = 2 
-
-    #j=10; X = [0,4,8,5, 3,4, 3,8, -13,-7,2, -10, 2,-14,-7,  -10,-6,  -12,-8,-3,  -6,-9,-5.5,-22,-11,0,0,0,0,0,0]  
-    #X[j] = 28
-    #print("WE"+"sdfg".center(int(15))+"fg")
-    #print(" ".ljust(X[j]) + Obj[j][9]+ " ".rjust(X[j]))
-    #
-    # for j in range(1,27): X[j]= int(float(Obj[j][2])); 
-    # X_E =  sorted(X)
-    # exit()
-    # import pandas as pd
-    # dat=0; df = pd.DataFrame({'particle':[],'':[],'meassure: m':[],'theory: E':[],'total':[],'i4':[],"i3":[],"i2":[],"i1":[],"i0":[],"i-1":[],"C":[]})
-    #        dat +=1; df.loc[dat] = [Obj[j][0]," max",m_max,Emax[j,m],i_Emax[j,m],Dmax[j,m,0]/2,Dmax[j,m,1]/2,Dmax[j,m,2]/2,Dmax[j,m,3]/2,Dmax[j,m,4]/2,Dmax[j,m,5]/2,Dmax[j,m,6]/2]
-    #        dat+=1;df.loc[dat] = ["","mean", Obj[j][1],E_mean,i_DeltaE,"i_DeltaE", i_DE , "‰", "max i_DeltaE", round(i_DE/(6**2),3),"‰",""]
-    #        dat +=1; df.loc[dat] = [""," min", m_min, Emin[j,m],i_Emin[j,m],Dmin[j,m,0],Dmin[j,m,1],Dmin[j,m,2],Dmin[j,m,3],Dmin[j,m,4],Dmin[j,m,5],Dmin[j,m,6]]
-
-    # df.round({"i4": 1, "i3": 1, "i2": 1, "i1": 1,"i0": 1, "i_1": 1, "C": 1})
-    # df['total'] = df['total'].apply(np.int32)
-    # # print(df)
-    # latex_code = df.to_latex(caption="Meine Tabelle aus Python",   label="tab:python_table") #,, column_format="lcccccccccccc"
-    # with open('mytable.tex','w') as tf:  tf.write(latex_code)
-    Obj=[["Name"   ,"m_e"               ,"","",""                               ,"MeV"              ,"Radius in fm","Charge","Spin","P.","Iso.","Iz","Quark","Marker"],
-        ["e"      ,"1.00(1)"           ,"1.00","-0.01","0.01"                  ,"0.51099895069(16)",""                       ,""            ,"-1","1/2","","","","",'k.'], 
-        ["u"      ,"4.18(-0.51)(0.96)" ,"4.18","-0.51","0.96"                  ,"2.16(-0.26)(0.49)",""                       ,""            ,"+2/3","","","","+1/2","u","r."],  
-        ["d"      ,"9.14(-0.33)(0.94)" ,"9.14","-0.33","0.94"                  ,"4.67(-0.17)(0.48)",""                       ,""            ,"-1/3","","","","-1/2","d","g."],  
-        ["s"      ,"182.8(-6.6)(16.8)" ,"182.8","-6.6","16.8"                  ,"93.4(-3.4)(8.6)"  ,""                       ,""            ,"-1/3","","","","-1","s","c."],    
-        ["c"      ,"2485(-39)(39)"     ,"2485","-39","39"                      ,"1270(-20)(20)"    ,""                       ,""            ,"+2/3","","","","1","c",""],
-        ["b"      ,"8186(14)"          ,"8186","-14","14"                      ,"4183(7)"          ,""                       ,""            ,"-1/3","","","","-1","b",""],
-        ["t"      ,"337710(570)"       ,"337710","-570","570"                  ,"172570(290)"      ,""                       ,""            ,"+2/3","","","","1","t",""],
-        ["Higgs"  ,"244830(210)"       ,"244830","-210","210"                  ,"125110(110)"      ,""                       ,""            ,"0","0","","","","Boson",""],
-        ["Muon"   ,"206.7682827(46)"   ,"206.7682827","-0.0000046","0.0000046" ,""                 ,"2.1969811(22) e -6" ,"R"           ,"-1","1/2","","","","","k."],  
-        ["Pion 0" ,"264.1430(9)"       ,"264.1430","-0.0009","0.0009"          ,"134.9768(5)"      ,"8.52(18) e -17"     ,"R"           ,"0","0","-","1","0","uu-dd","y."],  
-        ["Pion +-","273.13243(35)"     ,"273.13243","-0.00035","0.00035"       ,"139.57039(18)"    ,"2.6033(5) e -8"     ,"0,659(4)"    ,"+-1","0","-","1","+1","ud, ud","y."], 
-
-        ["Eta "   ,"547,862(17)"       ,"547,862(17)","-0.021","0.021"          ,"547,862(17)"       ,"5.0(3) e -19"     ,"+-1","0","-",r"$u\overline{u}+\overline{d}d-2s\overline{s} /6$",-8], 
-        ["Eta` "  ,"957,78(6)"         ,"957,78(6)","-0.021","0.021"             ,"957,78(6)"         ,"3.31(15) e -21"     ,"+-1","0","-",r"$u\overline{u}+\overline{d}d+2s\overline{s} /6$",-8], 
-        ["Eta_c"  ,"5839.3(9)"         ,"5839.3","-0.9","0.9"             ,"2983,9(5)"         ,"2.06 e -23 "     ,"+-1","0","-",r"$c\overline{c},\overline{c}$",-8], 
-        ["Eta_b"  ,"18392.7(3.9)"       ,"18392.7","-3.9","3.9"         ,"9398,7(2,0)"        ,""     ,"+-1","0","-",r"$b\overline{b},\overline{b}b",-8], 
-        ["D +"   ,"3658.81(10)"        ,"3658.81","-0.10","0.10"           ,"1869,65(5)"      ,"1.040(7) e -12"     ,"+-1","0","-",r"$c\overline{d},d\overline{c}$",-8], 
-        ["D 0"   ,"3649.38(10)"        ,"3649.38","-0.10","0.10"           ,"1864,83(5)"      ,"4.101(15) e -13"     ,"+-1","0","-",r"$c\overline{u},u\overline{c}$",-8], 
-        ["D_S +" ,"3851.94(13)"        ,"3851.94","-0.13","0.13"           ,"1968,34(7)"      ,"5.04(4) e -13"     ,"+-1","0","-",r"$c\overline{s},s\overline{c}$",-8], 
-
-        ["Eta"    ,"1072.139(35)"      ,"1072.139","-0.035","0.035"           ,"547.862(18)"      ,"5.0(3) e -19"            ,""            ,"0","0","-","0","0","uu+dd-2ss","m."], #u anti_s, s anti_u !!!! mittlere Lebensdauer  
-        ["Eta`"    ,"1874.32(11)"       ,"1874.32","-0.11","0.11"               ,"957.78(6)"        ,"3.32(15) e -21"     ,""            ,"0","0","-","0","0","uu+dd+ss","m."], #u anti_s, s anti_u !!!! mittlere Lebensdauer   
-        ["Rho +-" ,"1506(1)"           ,"506","-1","1"                        ,"770"              ,"4 e -24)"            ,""            ,"-+1","1","-","1","-+1","ud, ud","y."], #u anti_s, s anti_u !!!! mittlere Lebensdauer
-        ["Rho 0"  ,"1517.14(49)"       ,"1517.14","-0.49","0.49"               ,"775.26(25)"       ,"4 e -24)"            ,""            ,"0","1","-","1","-","uu-dd","y."], #u anti_s, s anti_u !!!! mittlere Lebensdauer  
-        ["Omega"  ,"1531.62(25)"       ,"1531.62","-0.25","0.25"               ,"782.66(13)"       ,"7.75(7) e -23"      ,""            ,"0","1","-","0","","uu+dd","y."], #u anti_s, s anti_u !!!! mittlere Lebensdauer  
-        ["Phi"    ,"1995.035(31)"      ,"1995.035","-0.031","0.031"            ,"1019.461(0.016)"  ,"1.55(0,01) e -22"   ,""            ,"0","1","-","0","","ss(most)","m."], #u anti_s, s anti_u !!!! mittlere Lebensdauer  
-        ["K +-"   ,"966.102(21)"       ,"966.102","-0.021","0.021"             ,"493.677(16)"      ,"1.2380(20) e -8"    ,"0.560(31)"   ,"+-1","0","-","1","+1/2","us, su","m."], #u anti_s, s anti_u !!!! mittlere Lebensdauer  
-        ["KL 0"   ,"973.8900(26)"       ,"973.800","-0.026","0.026"             ,"497.611(13)"      ,"5.116(21) e -8"     ,"-0.077(10)"  ,"0","0","-","1/2","-1/2","ds, sd","m."], # fm^2; #d anti_s, s anti_d  s (KL)  
-        ["KS 0"   ,"973.800(26)"       ,"973.800","-0.026","0.026"             ,"497.611(13)"      ,"8.954(4) e -11"     ,"-0.077(10)"  ,"0","","","","","ds, sd","m."], # fm^2; #d anti_s, s anti_d  s (KL)  
-        ["K* +-"  ,"1745.2(1)"         ,"1745.2","-0.1","0.1"                  ,"891.8"            ,"1.3 e -23"          ,""            ,"+-1","","","","","us, su","m."],  #u anti_s, s anti_u#  
-        ["K* 0"   ,"1752.6(1)"         ,"1752.6","-0.1","0.1"                  ,"895.6"            ,"1.3 e -23"          ,""            ,"0","","","","","ds, sd","m."],  #d anti_s, s anti_d#   
-        ["Neutron","1838.68366200(74)" ,"1838.68366200", "-0.00000074", "0.00000074"    ,""        ,"878.4(5)"               ,""            ,"0","1/2","1","1/2","-1/2","udd","b."],  
-        ["Proton" ,"1836.152673426(32)","1836.152673426","-0.000000032","0.000000032"   ,""        ,""                      ,"0.8409(4)"   ,"1","1/2","1","1/2","+1/2","uud","b."], 
-        ["Tau"    ,"3477.23(23)"       ,"3477.23","-0.23","0.23"               ,""                 ,"290.3(5) e -15"     ,"R"           ,"-1","1/2","","","","","k."],    
-        ["W +-"   ,"157278.6(26.0)"    ,"157278.6","-26.0","26.0"              ,"80369.2(133)"     ,""                       ,""            ,"+-1","","","","","",""],
-        ["Z 0"    ,"178450.4(4.5)"     ,"178450.4","-4.5","4.5"                ,"91188.0(20)"      ,""                       ,""            ,"0","","","","","",""],
-        ["H"      ,"1837.47(-0.29)(0.20)","1837.47","-0.29","0.20"             ,""                 ,""                       ,""            ,"0","","","","","","b."],
-        ["He"     ,"7296.2971(36)"     ,"7296.2971","-0.0036","0.0036"         ,""                 ,""                       ,""            ,"0","","","","","",""],
-        ["Earth"  ,""                  ,"","",""                               ,""                 ,"86400"                  ,"6378137.0 m" ,"6356752.314","C","","","","","",""],
-        ["Moon"   ,""                  ,"","",""                               ,""                 ,"27.3*24*3600"           ,"3474.8/2 m"  ,"C","","","","","",""]]
-
-    print("i_Emax[j,m]", i_Emax[j,m] , "10000*float(Obj[j][10]" ,10000*float(Obj[j][10]),"E_mean-20", E_mean-20, "Obj[j][9]",Obj[j][9])
-    #import sys  #from datetime import datetime; DT=datetime.today().strftime('%H:%M:%S'); print(DT); print(DT, file=f)
-
-    import pandas as pd
-    dat=0
-    dat +=1; data[dat] = ["particle","","mass Half-life", "theory: E","   total ","  i4","  i3","  i2","  i1","  i0"," i-1","  C"]
-    dat +=1; data[dat] = ["","max   ", m_max, Emax[j,m],i_Emax[j,m],Dmax[j,m,0]/2,Dmax[j,m,1]/2,Dmax[j,m,2]/2,Dmax[j,m,3]/2,Dmax[j,m,4]/2,Dmax[j,m,5]/2,Dmax[j,m,6]/2],
-    dat +=1; data[dat] = ["","mean  ", Obj[j][1],E_mean,Di_E,"","","","","",""],
-    dat +=1; data[dat] = ["","min   ", m_min, Emin[j,m],i_Emin[j,m],Dmin[j,m,0]/2,Dmin[j,m,1]/2,Dmin[j,m,2]/2,Dmin[j,m,3]/2,Dmin[j,m,4]/2,Dmin[j,m,5]/2,Dmin[j,m,6]/2]
-    for i in range [1,dat]:
-        df = pd.DataFrame(data)
-    df.to_excel('output.xlsx', index=False)
 
 
 if __name__ == "__main__":
