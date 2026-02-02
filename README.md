@@ -49,6 +49,29 @@ Open a terminal in this folder and run:
 2) Run the program:
 `make run`
 
+## Running the program manually (CLI)
+
+After installation, the package also provides a command-line entry point called `polynome2pi`.
+
+This allows running the program directly, without using `make`.
+
+### Basic run
+
+```bash
+polynome2pi
+```
+
+This runs the default configuration (Option 2) and:
+- computes the energy spectrum
+- writes a `.txt` and `.png` file to the `results/` directory
+- opens a plot window at the end
+
+### Show all options
+
+```bash
+polynome2pi --help
+```
+
 ## Other useful commands
 - `make help`   -> list commands
 - `make build`  -> build package into dist/
