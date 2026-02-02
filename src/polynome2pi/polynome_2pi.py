@@ -4,12 +4,26 @@ import matplotlib.colors as mcolors
 import numpy as np
 import pandas as pd
 import argparse
+from dataclasses import dataclass
 
 pi = cmath.pi; 
 
 E = [0]*10; 
 
 g = [[0]*10]*10; 
+
+@dataclass
+class PolynomeConfig:
+    J4: int
+    J3: int
+    J2: int
+    add_info: str = ""
+
+    @property
+    def name(self) -> str:
+        """Human-readable name used for output files."""
+        suffix = f" {self.add_info}" if self.add_info else ""
+        return f"Polynom{suffix} {self.J4}{self.J3}{self.J2}"
 
 def Energie(i4,i3,i2,i1,i0,i_1,C):
     g[2][4]=i4; g[2][3]=i3; g[2][2]=i2; g[1][1]=i1; g[1][0]=i0; g[1][-1]=i_1
@@ -62,20 +76,30 @@ def parse_args(argv=None):
     
     return op, no_show
     
-    
+def select_preset(op: int):
+    add_info = ""
+    if op == 1: # slow (20 minutes)
+        config = PolynomeConfig(J4=1, J3=1, J2=2)
+    elif op == 2:  # fast, for u , d , s
+        config = PolynomeConfig(J4=0, J3=1, J2=1)
+    elif op == 3: # fast, for u , d
+        config = PolynomeConfig(J4=0, J3=0, J2=1)
+    elif op == 4: # fast, for Proton H-Atom Neutron
+        config = PolynomeConfig(J4=1, J3=1, J2=1, add_info="Atom")
+    elif op == 5: #  E<1500! slow, more particles with c,tau
+        config = PolynomeConfig(J4=2, J3=2, J2=2, add_info="Tau")
+    else:
+        raise ValueError("op must be 1..5")
+        
+    return config
 
 def main(argv=None):
     
     Op, no_show = parse_args(argv)
+    config = select_preset(Op)
         
-    if Op==1: J4=1; J3=1; J2=2; f_="Polynom 112 30.1.26.txt"; f_png = "Polynom 112 30.1.28.png" # slow (20 minutes)
-    if Op==2: J4=0; J3=1; J2=1; f_="Polynom 011 30.1.26.txt"; f_png = "Polynom 011 30.1.26.png" # fast, for u, d, s, pion, muon E<300
-    if Op==3: J4=0; J3=0; J2=1; f_="Polynom 001  30.1.26.txt"; f_png = 'Polynom 001 30.1.26.png' # fast, for u , d
-    if Op==4: J4=1; J3=1; J2=1; f_="Polynom 111 Atom 30.1.26.txt"; f_png = 'Polynom 111 Atom 30.1.26.png' # fast, for Proton H-Atom Neutron
-    if Op==5: J4=2; J3=2; J2=2; f_="Polynom 222 Tau 30.1.26.txt"; f_png = "Polynom 222 Tau 30.1.26.png" #  E<1500! slow, more particles with c,tau
-    
-    
-    f=open(f_,'w', encoding="utf8"); f=open(f_,'a+', encoding="utf8")
+    f=open(f"{config.name}.txt",'w', encoding="utf8")
+    f=open(f"{config.name}.txt",'a+', encoding="utf8")
     
     i_T = 0; i_T1 = 0; 
     
@@ -129,9 +153,9 @@ def main(argv=None):
     "#B91F50","#CB4088","#F90404","#000000","#4D8E2F","#499999","#F50606","#146108"]
 
     for i5 in [0]:      # for speed v  c Mesonen and Celestial bodies             
-        for i4 in range(-2*J4,2*J4+1):                   # Select range for more particle: in range(-4,5):   
-            for i3 in range(-2*J3,2*J3+1):               #            for Phi, Eta, tau, c    
-                for i2 in range(-2*J2,2*J2+1):            
+        for i4 in range(-2*config.J4,2*config.J4+1):                   # Select range for more particle: in range(-4,5):   
+            for i3 in range(-2*config.J3,2*config.J3+1):               #            for Phi, Eta, tau, c    
+                for i2 in range(-2*config.J2,2*config.J2+1):            
                     print("i4",i4,"i3",i3,"i2",i2,"i1",i1,"i_T1", i_T1)
                     for i1 in range(-6,7):               # range(-6,7) is required     
                         for i0 in range(-6,7):  
@@ -268,7 +292,7 @@ def main(argv=None):
     f.close()
     fig = plt.gcf()
     fig.set_size_inches(10, 6)                     
-    fig.savefig(f_png, dpi=100)   # after several minutes
+    fig.savefig(f"{config.name}.png", dpi=100)   # after several minutes
     if not no_show:
         plt.show()
 
