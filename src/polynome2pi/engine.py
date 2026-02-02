@@ -1,5 +1,111 @@
 import cmath
 
+from .cli import ScanSector, PolynomeConfig
+def run_scan(
+    *,
+    config: PolynomeConfig,
+    sector: ScanSector,
+    obj_E,
+    obj_min,
+    obj_max,
+    Cnt,
+    Emax,
+    Emin,
+    i_Emax,
+    i_Emin,
+    Dmax,
+    Dmin,
+    xs_by_j,
+    ys_by_j,
+    grey_segments,
+):
+    """
+    Executes the nested scan loops. Returns (i_T, i_T1, mmax).
+    Mutates the provided arrays/buffers.
+    """
+    engine = PolynomeEngine()
+    energie = engine.energie
+    E_local = engine.E
+    
+    is_heavy = (sector is ScanSector.heavy)
+    is_nucleon = (sector is ScanSector.nucleon)
+
+    i_T = 0
+    i_T1 = 0
+    mmax = 0
+    ct = 0
+
+    for i4 in range(-2 * config.J4, 2 * config.J4 + 1):
+        i4h = 0.5 * i4
+        for i3 in range(-2 * config.J3, 2 * config.J3 + 1):
+            i3h = 0.5 * i3
+            for i2 in range(-2 * config.J2, 2 * config.J2 + 1):
+                i2h = 0.5 * i2
+
+                for i1 in range(-6, 7):
+                    i1h = 0.5 * i1
+                    for i0 in range(-6, 7):
+                        i0h = 0.5 * i0
+                        for i_1 in range(-6, 7):
+                            i_1h = 0.5 * i_1
+                            for C in range(-2, 3):
+                                Ch = 0.5 * C
+
+                                energie(i4h, i3h, i2h, i1h, i0h, i_1h, Ch)
+                                E0 = E_local[0]
+                                if E0 < 0:
+                                    continue
+
+                                m = int(256 + 32 * i4 + 4 * i3 + i2)
+                                if m > mmax:
+                                    mmax = m
+                                    ct = 0
+                                ct += 1
+                                Cnt[mmax] = ct
+
+                                if is_heavy and E0 < 1500:
+                                    continue
+                                if is_nucleon and (E0 < 1836 or E0 > 1839):
+                                    continue
+
+                                i_T += 1
+                                flag_match = 0
+
+                                for j in range(1, 27):
+                                    Ej = obj_E[j]
+                                    if (E0 - Ej <= obj_max[j]) and (E0 - Ej >= obj_min[j]):
+                                        i_T1 += 1
+
+                                        if Emax[j, m] <= E0:
+                                            Emax[j, m] = E0
+                                            i_Emax[j, m] = i_T
+                                            Dmax[j, m, 0] = i4
+                                            Dmax[j, m, 1] = i3
+                                            Dmax[j, m, 2] = i2
+                                            Dmax[j, m, 3] = i1
+                                            Dmax[j, m, 4] = i0
+                                            Dmax[j, m, 5] = i_1
+                                            Dmax[j, m, 6] = C
+
+                                        if Emin[j, m] >= E0 or Emin[j, m] == 0:
+                                            Emin[j, m] = E0
+                                            i_Emin[j, m] = i_T
+                                            Dmin[j, m, 0] = i4
+                                            Dmin[j, m, 1] = i3
+                                            Dmin[j, m, 2] = i2
+                                            Dmin[j, m, 3] = i1
+                                            Dmin[j, m, 4] = i0
+                                            Dmin[j, m, 5] = i_1
+                                            Dmin[j, m, 6] = C
+
+                                        xs_by_j[j].append(i_T)
+                                        ys_by_j[j].append(E0)
+                                        flag_match = 1
+
+                                if E0 > 0 and flag_match == 0:
+                                    grey_segments.append([(i_T, E0), (i_T + 1, E0)])
+
+    return i_T, i_T1, mmax
 class PolynomeEngine:
     """
     Owns all precomputed constants and all scratch state used by energie().
