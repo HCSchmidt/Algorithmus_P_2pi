@@ -239,49 +239,19 @@ class PolynomeEngine:
         return total
 
 
-def main(argv=None):
-    start_time_stamp = datetime.datetime.now()
+# ------------------------- extracted helpers -------------------------
 
-    args = parse_args(argv)
-    sector = args.sector
-    config = select_preset_by_sector(sector)
-    no_show = args.no_show
-    DEBUG = args.debug
-
-    # hoist sector checks (avoid Enum comparisons in the hot loop)
-    is_heavy = (sector is ScanSector.heavy)
-    is_nucleon = (sector is ScanSector.nucleon)
-
-    engine = PolynomeEngine()
-    energie = engine.energie        # local bind
-    E_local = engine.E              # local bind
-
-    # ---------------------- data structures ----------------------
-    i_T = 0
-    i_T1 = 0
-    mmax = 0
-    ct = 0
-
-    D_i_N = [0.0] * 300
-    D_i_c_ = [""] * 35
-    Cnt = [0] * 520
-
-    Emax = np.zeros((35, 520), dtype=float)
-    Emin = np.zeros((35, 520), dtype=float)
-    i_Emax = np.zeros((35, 520), dtype=int)
-    i_Emin = np.zeros((35, 520), dtype=int)
-    Dmax = np.zeros((35, 520, 7), dtype=int)
-    Dmin = np.zeros((35, 520, 7), dtype=int)
-
+def build_colors():
     # colors (index 1..26 used)
-    F = [
+    return [
         "#FFFFFF", "#000000", "#F60000", "#05FB4F", "#CFCF00", "#000000", "#07FCE4",
         "#F700D2", "#00F73E", "#7BB91F", "#A9BF06", "#047619", "#047619", "#789E20",
         "#CFCF00", "#CF00B7", "#EC61A9", "#FA9805", "#4200F6", "#495999", "#B91F50",
         "#CB4088", "#F90404", "#000000", "#4D8E2F", "#499999", "#F50606", "#146108",
     ]
 
-    # Particle table (kept from your current version)
+
+def build_particle_table():
     Obj = [
         ["Name", "m_e", "E", "-SD", "+SD", "Halbwertszeit T in sec", "Charge", "Spin", "P.", "name"],
         ["e", "1.00000000000(31)", "1.00000000000", "-0.005", "0.000", " ", "-1", "1/2", "", "e"],
@@ -315,7 +285,7 @@ def main(argv=None):
         ["t", "337710(570)", "337710", "-570", "570", " ", "+2/3", "", "", "t"],
     ]
 
-    # Precompute numeric values for matching (avoid float conversion in hot loop)
+    # numeric helpers for matching (avoid float conversion in hot loop)
     obj_E = [0.0] * 27
     obj_min = [0.0] * 27
     obj_max = [0.0] * 27
@@ -324,354 +294,502 @@ def main(argv=None):
         obj_min[jj] = float(Obj[jj][3])
         obj_max[jj] = float(Obj[jj][4])
 
-    # Plot batching
+    return Obj, obj_E, obj_min, obj_max
+
+
+def allocate_result_arrays():
+    D_i_N = [0.0] * 300
+    D_i_c_ = [""] * 35
+    Cnt = [0] * 520
+
+    Emax = np.zeros((35, 520), dtype=float)
+    Emin = np.zeros((35, 520), dtype=float)
+    i_Emax = np.zeros((35, 520), dtype=int)
+    i_Emin = np.zeros((35, 520), dtype=int)
+    Dmax = np.zeros((35, 520, 7), dtype=int)
+    Dmin = np.zeros((35, 520, 7), dtype=int)
+
+    return D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin
+
+
+def init_plot_buffers():
     xs_by_j = [[] for _ in range(27)]
     ys_by_j = [[] for _ in range(27)]
     grey_segments = []
+    return xs_by_j, ys_by_j, grey_segments
 
-    # Output paths
+
+def run_scan(
+    *,
+    engine: PolynomeEngine,
+    config: PolynomeConfig,
+    is_heavy: bool,
+    is_nucleon: bool,
+    debug: bool,
+    obj_E,
+    obj_min,
+    obj_max,
+    Cnt,
+    Emax,
+    Emin,
+    i_Emax,
+    i_Emin,
+    Dmax,
+    Dmin,
+    xs_by_j,
+    ys_by_j,
+    grey_segments,
+):
+    """
+    Executes the nested scan loops. Returns (i_T, i_T1, mmax).
+    Mutates the provided arrays/buffers.
+    """
+    energie = engine.energie
+    E_local = engine.E
+
+    i_T = 0
+    i_T1 = 0
+    mmax = 0
+    ct = 0
+
+    for i4 in range(-2 * config.J4, 2 * config.J4 + 1):
+        i4h = 0.5 * i4
+        for i3 in range(-2 * config.J3, 2 * config.J3 + 1):
+            i3h = 0.5 * i3
+            for i2 in range(-2 * config.J2, 2 * config.J2 + 1):
+                i2h = 0.5 * i2
+
+                if debug:
+                    print("i4", i4, "i3", i3, "i2", i2, "i_T1", i_T1)
+
+                for i1 in range(-6, 7):
+                    i1h = 0.5 * i1
+                    for i0 in range(-6, 7):
+                        i0h = 0.5 * i0
+                        for i_1 in range(-6, 7):
+                            i_1h = 0.5 * i_1
+                            for C in range(-2, 3):
+                                Ch = 0.5 * C
+
+                                energie(i4h, i3h, i2h, i1h, i0h, i_1h, Ch)
+                                E0 = E_local[0]
+                                if E0 < 0:
+                                    continue
+
+                                m = int(256 + 32 * i4 + 4 * i3 + i2)
+                                if m > mmax:
+                                    mmax = m
+                                    ct = 0
+                                ct += 1
+                                Cnt[mmax] = ct
+
+                                if is_heavy and E0 < 1500:
+                                    continue
+                                if is_nucleon and (E0 < 1836 or E0 > 1839):
+                                    continue
+
+                                i_T += 1
+                                flag_match = 0
+
+                                for j in range(1, 27):
+                                    Ej = obj_E[j]
+                                    if (E0 - Ej <= obj_max[j]) and (E0 - Ej >= obj_min[j]):
+                                        i_T1 += 1
+
+                                        if Emax[j, m] <= E0:
+                                            Emax[j, m] = E0
+                                            i_Emax[j, m] = i_T
+                                            Dmax[j, m, 0] = i4
+                                            Dmax[j, m, 1] = i3
+                                            Dmax[j, m, 2] = i2
+                                            Dmax[j, m, 3] = i1
+                                            Dmax[j, m, 4] = i0
+                                            Dmax[j, m, 5] = i_1
+                                            Dmax[j, m, 6] = C
+
+                                        if Emin[j, m] >= E0 or Emin[j, m] == 0:
+                                            Emin[j, m] = E0
+                                            i_Emin[j, m] = i_T
+                                            Dmin[j, m, 0] = i4
+                                            Dmin[j, m, 1] = i3
+                                            Dmin[j, m, 2] = i2
+                                            Dmin[j, m, 3] = i1
+                                            Dmin[j, m, 4] = i0
+                                            Dmin[j, m, 5] = i_1
+                                            Dmin[j, m, 6] = C
+
+                                        xs_by_j[j].append(i_T)
+                                        ys_by_j[j].append(E0)
+                                        flag_match = 1
+
+                                if E0 > 0 and flag_match == 0:
+                                    grey_segments.append([(i_T, E0), (i_T + 1, E0)])
+
+    return i_T, i_T1, mmax
+
+
+def draw_points(xs_by_j, ys_by_j, grey_segments, colors):
+    for j in range(1, 27):
+        if xs_by_j[j]:
+            plt.scatter(xs_by_j[j], ys_by_j[j], s=80, c=colors[j], marker=".", linewidths=0)
+
+    if grey_segments:
+        lc = LineCollection(grey_segments, colors="#C0BCBC", linewidths=1)
+        plt.gca().add_collection(lc)
+
+
+def label_offsets_for_sector(sector: ScanSector, j: int):
+    """
+    Returns (X, Y, fs) where X is the whole list so we can use X[j].
+    Keeping this identical to your working version.
+    """
+    if sector is ScanSector.broad:
+        X = [0, 4, 7, 9, 6, 9, 5, 13, -21, -12, 5, -19, 6, -28, -17, -21, -13, -20, -12, -10, -37, -9, -5.5, -22, -11, 0, 0, 0]
+        return X, -20, 12
+
+    if sector is ScanSector.light:
+        X = [0, 1.2, 2.5, 3, 1, 1, 0.7, 1]
+        return X, -4, 16
+
+    if sector is ScanSector.minimal:
+        X = [0, 0.2, 0.2, 0.2]
+        return X, -1, 16
+
+    if sector is ScanSector.nucleon:
+        X = [0, 2, 4, 5, 3, 4, 4, 8, -13, -7, 2, -11, 2, -14, -7, -11, -7, -12, -8, -3, -0, -0, -0, -22, -11, 0, 0, 0]
+        return X, -0, 16
+
+    if sector is ScanSector.heavy:
+        X = [0, 5, 10, 15, 20, 5, 9, 30, -35, -20, 7, -40, 25, 15, 4, 35, 20, -13, -10, -7, 20, 20, 10, -10, -10, -20, 0, 0, 0]
+        X[j] *= 2
+        return X, -50, 12
+
+    raise ValueError(f"Unhandled sector: {sector}")
+
+
+def write_report_and_labels(
+    *,
+    f,
+    sector: ScanSector,
+    Obj,
+    colors,
+    D_i_N,
+    D_i_c_,
+    Cnt,
+    Emax,
+    Emin,
+    i_Emax,
+    i_Emin,
+    Dmax,
+    Dmin,
+):
+    print("..............   plotting   .................")
+    # (i_T / i_T1 prints are done in main because it has those values)
+
+    print(
+        "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
+            "particle", "", "", "     theory: E", "   total ", "  i4", "  i3", "  i2", "  i1", "  i0", " i-1", "  C"
+        ),
+        file=f,
+    )
+
+    for j in range(1, 29):
+        m_min = float(Obj[j][2]) + float(Obj[j][3])
+        m_max = float(Obj[j][2]) + float(Obj[j][4])
+        p_g = len(Obj[j][2])
+        m_min = float(str(m_min)[:p_g])
+        m_max = float(str(m_max)[:p_g])
+        flag = 0
+
+        for m in range(1, 512):
+            if i_Emax[j, m] == 0:
+                continue
+            if flag == 0:
+                print(Obj[j][0], file=f)
+                flag += 1
+
+            E_mean = (Emax[j, m] + Emin[j, m]) / 2
+            Di_E = (i_Emax[j, m] - i_Emin[j, m] + 1)
+            i_Emax[j, 0] += abs(Di_E)
+            Cnt_ = Cnt[m]
+            D_i_c = round((abs(Di_E)) * 100 / Cnt_, 5)
+            i_Emax[j, 516] += Cnt_
+            D_i_N[j] = float(i_Emax[j, 0]) * 100 / Cnt[m]
+
+            Emax[j, m] = float(str(Emax[j, m])[:p_g])
+            Emin[j, m] = float(str(Emin[j, m])[:p_g])
+            E_mean = float(str(E_mean)[:p_g])
+
+            print(
+                "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
+                    "", "max   ", m_max, Emax[j, m], i_Emax[j, m],
+                    Dmax[j, m, 0] / 2, Dmax[j, m, 1] / 2, Dmax[j, m, 2] / 2,
+                    Dmax[j, m, 3] / 2, Dmax[j, m, 4] / 2, Dmax[j, m, 5] / 2,
+                    Dmax[j, m, 6] / 2,
+                ),
+                file=f,
+            )
+            print(
+                "{0:10}{1:5}{2:20}{3:16}{4:8}{5:9}{6:7}{7:2}{8:12}{9:7}{10:2}".format(
+                    "", "mean  ", Obj[j][1], E_mean, Di_E, "", "", "", "", "", ""
+                ),
+                file=f,
+            )
+            print(
+                "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
+                    "", "min   ", m_min, Emin[j, m], i_Emin[j, m],
+                    Dmin[j, m, 0] / 2, Dmin[j, m, 1] / 2, Dmin[j, m, 2] / 2,
+                    Dmin[j, m, 3] / 2, Dmin[j, m, 4] / 2, Dmin[j, m, 5] / 2,
+                    Dmin[j, m, 6] / 2,
+                ),
+                file=f,
+            )
+            print(
+                "{0:10}{1:5}{2:20}{3:15}{4:8}{5:5}{6:8}{7:9}{8:10}{9:2}".format(
+                    "", "", "", "         ∆ abs(i)", abs(Di_E),
+                    "  Cts", Cnt_, "  ∆i/(2pi)", D_i_c, " %"
+                ),
+                file=f,
+            )
+
+            # Restore labels in the plot
+            if flag == 1:
+                X, Y, fs = label_offsets_for_sector(sector, j)
+                plt.text(
+                    i_Emin[j, m] + 10000 * X[j],
+                    E_mean + Y,
+                    Obj[j][9],
+                    fontsize=fs,
+                    color=colors[j],
+                )
+                flag = 2
+
+        if j > 1 and m == 511 and i_Emax[j, 516] > 0:
+            D_i_c = round(float(i_Emax[j, 0]) * 100 / i_Emax[j, 516], 5)
+            D = str(D_i_c)
+            D_i_c_[j] = "".rjust(10 - len(D), " ") + D + " %"
+            print(
+                "{0:10}{1:5}{2:20}{3:15}{4:8}{5:5}{6:8}{7:9}{8:10}{9:2}".format(
+                    "", "total", "", "             Σ ∆i", i_Emax[j, 0],
+                    "  Cts", i_Emax[j, 516], "  ∆i/(2pi)", D_i_c, " %"
+                ),
+                file=f,
+            )
+
+        if flag == 0:
+            print(
+                "{0:10}{1:5}{2:20}{3:16}{4:8}".format(
+                    Obj[j][0], "mean  ", Obj[j][1], "  ", " only with i4 > 1"
+                ),
+                file=f,
+            )
+
+
+def add_reference_lines(sector: ScanSector, i_T: int):
+    x_a = 0
+    x_m = i_T * 1 / 5
+
+    plt.ylabel("Energy in $m_e$")
+    plt.xlabel("N")
+
+    TWO_PI = float(2 * cmath.pi)
+    i2_ = TWO_PI ** 2
+    i3_ = TWO_PI ** 3
+    i4_ = TWO_PI ** 4
+    i5_ = 0.5 * (i4_ + i3_ + i2_)
+    i6_ = i4_ + i3_ + i2_
+    i7_ = 2.5 * i4_ - 1.5 * i3_ - 0.5 * i2_
+    i8_ = 1.5 * i4_ + i3_ + i2_
+    i10_ = 1.5 * i4_ + 0.5 * i3_ - 0.5 * i2_
+
+    if sector is ScanSector.broad:
+        plt.plot([x_a, x_m], [i4_, i4_], "k", linewidth=1)
+        plt.text(x_a, i4_ + 15, r"$(2\pi)^4$", fontsize=12, color="blue")
+        plt.plot([x_a, x_m], [i3_, i3_], "k", linewidth=1)
+        plt.text(x_a, i3_ + 15, r"$(2\pi)^3$", fontsize=12, color="blue")
+        plt.plot([x_a, x_m], [i2_, i2_], "k", linewidth=1)
+        plt.text(x_a, i2_ + 15, r"$(2\pi)^2$", fontsize=12, color="blue")
+        plt.plot([x_a, x_m], [i5_, i5_], "k", linewidth=1)
+        plt.text(x_a, i5_ + 15, r"$1/2((2\pi)^4+(2\pi)^3+(2\pi)^2)$", fontsize=12, color="blue")
+        plt.plot([x_a, x_m], [i6_, i6_], "k", linewidth=1)
+        plt.text(x_a, i6_ + 15, r"$(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
+
+    if sector is ScanSector.heavy:
+        plt.plot([x_a, x_m], [i7_, i7_], "k", linewidth=1)
+        plt.text(x_a, i7_ + 15, r"$5/2(2\pi)^4-3/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
+        plt.plot([x_a, 2 * x_m], [i8_, i8_], "k", linewidth=1)
+        plt.text(x_a, i8_ + 15, r"$3/2(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
+        plt.plot([x_a, 3 * x_m], [i10_, i10_], "k", linewidth=1)
+        plt.text(x_a, i10_ + 15, r"$3/2(2\pi)^4+1/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
+
+    if sector in (ScanSector.broad, ScanSector.light):
+        plt.plot([x_a, x_m], [i3_, i3_], "k", linewidth=1)
+        plt.text(x_a, i3_ + 15, r"$(2\pi)^3$", fontsize=12, color="blue")
+
+    if sector in (ScanSector.broad, ScanSector.light, ScanSector.minimal):
+        plt.plot([x_a, x_m], [i2_, i2_], "k", linewidth=1)
+        plt.text(x_a, i2_ + 15, r"$(2\pi)^2$", fontsize=12, color="blue")
+
+    # x-limits similar to your previous plots
+    if sector is ScanSector.minimal:
+        plt.xlim(-1000, i_T + 10000)
+    elif sector is ScanSector.nucleon:
+        plt.xlim(0, i_T)
+    else:
+        plt.xlim(-10000, i_T + 30000)
+
+
+def add_legend_panels(sector: ScanSector, i_T: int, Obj, colors, i_Emax, D_i_c_):
+    if sector is ScanSector.broad:
+        x_a = i_T * 0.65
+        dx = i_T * 0.08
+        i = -20
+        for jj in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 16, 17, 18, 19]:
+            particle = str(Obj[jj][9])
+            plt.text(x_a, i, Obj[jj][0])
+            plt.text(x_a + dx, i, particle, color=colors[jj])
+            plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+            plt.text(x_a + 3 * dx, i, D_i_c_[jj])
+            i += 100
+        plt.text(x_a + 2 * dx, i, "  ∆i  ")
+        plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
+
+    if sector is ScanSector.light:
+        x_a = i_T * 0.70
+        dx = i_T * 0.10
+        i = 0
+        for jj in [1, 2, 3, 4, 5, 6, 7]:
+            particle = str(Obj[jj][9])
+            plt.text(x_a, i, Obj[jj][0])
+            plt.text(x_a + dx, i, particle, color=colors[jj])
+            plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+            plt.text(x_a + 3 * dx, i, D_i_c_[jj])
+            i += 20
+        plt.text(x_a + 2 * dx, i, "  ∆i  ")
+        plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
+
+    if sector is ScanSector.minimal:
+        x_a = i_T * 0.89
+        dx = i_T * 0.10
+        i = 0
+        for jj in [1, 2, 3, 4, 5, 6, 7]:
+            particle = str(Obj[jj][9])
+            plt.text(x_a, i, Obj[jj][0])
+            plt.text(x_a + dx, i, particle, color=colors[jj])
+            plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+            plt.text(x_a + 3 * dx, i, D_i_c_[jj])
+            i += 5
+        plt.text(x_a + 2 * dx, i, "  ∆i  ")
+        plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
+
+    if sector is ScanSector.nucleon:
+        fs = 14
+        x_a = i_T * 0.70
+        dx = i_T * 0.10
+        i = 0
+        m_H = 1836.152673426 + 1
+        plt.plot([1, i_T], [m_H, m_H], "k", linewidth=1)
+        plt.text(1, 1837, "$m_{Proton} + m_e$", fontsize=fs, color="blue")
+        for jj in [17, 19]:
+            plt.text(1050, float(Obj[jj][2]), Obj[jj][0], fontsize=fs, color=colors[jj])
+            particle = str(Obj[jj][9])
+            plt.text(x_a, i, Obj[jj][0])
+            plt.text(x_a + dx, i, particle, color=colors[jj])
+            plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+            plt.text(x_a + 3 * dx, i, D_i_c_[jj])
+            i += 20
+
+    if sector is ScanSector.heavy:
+        x_a = i_T * 0.65
+        dx = i_T * 0.085
+        i = 1500
+        for jj in [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]:
+            particle = str(Obj[jj][9])
+            plt.text(x_a, i, Obj[jj][0])
+            plt.text(x_a + dx, i, particle, color=colors[jj])
+            plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+            plt.text(x_a + 3 * dx, i, D_i_c_[jj])
+            i += 100
+        plt.text(x_a + 2 * dx, i, "  ∆i  ")
+        plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
+
+
+# ------------------------- main orchestration -------------------------
+
+def main(argv=None):
+    start_time_stamp = datetime.datetime.now()
+
+    args = parse_args(argv)
+    sector = args.sector
+    config = select_preset_by_sector(sector)
+    no_show = args.no_show
+    DEBUG = args.debug
+
+    # hoist sector checks (avoid Enum comparisons in the hot loop)
+    is_heavy = (sector is ScanSector.heavy)
+    is_nucleon = (sector is ScanSector.nucleon)
+
+    engine = PolynomeEngine()
+
+    # data
+    colors = build_colors()
+    Obj, obj_E, obj_min, obj_max = build_particle_table()
+    D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin = allocate_result_arrays()
+    xs_by_j, ys_by_j, grey_segments = init_plot_buffers()
+
+    # output paths
     txt_path = RESULTS_DIR / f"{config.name}.txt"
     png_path = RESULTS_DIR / f"{config.name}.png"
 
     with open(txt_path, "w", encoding="utf8") as f:
-        # ---------------------- scan ----------------------
-        for i4 in range(-2 * config.J4, 2 * config.J4 + 1):
-            i4h = 0.5 * i4
-            for i3 in range(-2 * config.J3, 2 * config.J3 + 1):
-                i3h = 0.5 * i3
-                for i2 in range(-2 * config.J2, 2 * config.J2 + 1):
-                    i2h = 0.5 * i2
-
-                    if DEBUG:
-                        print("i4", i4, "i3", i3, "i2", i2, "i_T1", i_T1)
-
-                    for i1 in range(-6, 7):
-                        i1h = 0.5 * i1
-                        for i0 in range(-6, 7):
-                            i0h = 0.5 * i0
-                            for i_1 in range(-6, 7):
-                                i_1h = 0.5 * i_1
-                                for C in range(-2, 3):
-                                    Ch = 0.5 * C
-
-                                    energie(i4h, i3h, i2h, i1h, i0h, i_1h, Ch)
-                                    E0 = E_local[0]
-                                    if E0 < 0:
-                                        continue
-
-                                    m = int(256 + 32 * i4 + 4 * i3 + i2)
-                                    if m > mmax:
-                                        mmax = m
-                                        ct = 0
-                                    ct += 1
-                                    Cnt[mmax] = ct
-
-                                    if is_heavy and E0 < 1500:
-                                        continue
-                                    if is_nucleon and (E0 < 1836 or E0 > 1839):
-                                        continue
-
-                                    i_T += 1
-                                    flag_match = 0
-
-                                    for j in range(1, 27):
-                                        Ej = obj_E[j]
-                                        if (E0 - Ej <= obj_max[j]) and (E0 - Ej >= obj_min[j]):
-                                            i_T1 += 1
-
-                                            if Emax[j, m] <= E0:
-                                                Emax[j, m] = E0
-                                                i_Emax[j, m] = i_T
-                                                Dmax[j, m, 0] = i4
-                                                Dmax[j, m, 1] = i3
-                                                Dmax[j, m, 2] = i2
-                                                Dmax[j, m, 3] = i1
-                                                Dmax[j, m, 4] = i0
-                                                Dmax[j, m, 5] = i_1
-                                                Dmax[j, m, 6] = C
-
-                                            if Emin[j, m] >= E0 or Emin[j, m] == 0:
-                                                Emin[j, m] = E0
-                                                i_Emin[j, m] = i_T
-                                                Dmin[j, m, 0] = i4
-                                                Dmin[j, m, 1] = i3
-                                                Dmin[j, m, 2] = i2
-                                                Dmin[j, m, 3] = i1
-                                                Dmin[j, m, 4] = i0
-                                                Dmin[j, m, 5] = i_1
-                                                Dmin[j, m, 6] = C
-
-                                            xs_by_j[j].append(i_T)
-                                            ys_by_j[j].append(E0)
-                                            flag_match = 1
-
-                                    if E0 > 0 and flag_match == 0:
-                                        grey_segments.append([(i_T, E0), (i_T + 1, E0)])
-
-        # ---------------------- draw points (batched) ----------------------
-        for j in range(1, 27):
-            if xs_by_j[j]:
-                plt.scatter(xs_by_j[j], ys_by_j[j], s=80, c=F[j], marker=".", linewidths=0)
-
-        if grey_segments:
-            lc = LineCollection(grey_segments, colors="#C0BCBC", linewidths=1)
-            plt.gca().add_collection(lc)
-
-        # ---------------------- write report + restore labels ----------------------
-        print("..............   plotting   .................")
-        print("possible ET:", i_T, "real ET:", i_T1)
-
-        print(
-            "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
-                "particle", "", "", "     theory: E", "   total ", "  i4", "  i3", "  i2", "  i1", "  i0", " i-1", "  C"
-            ),
-            file=f,
+        # scan
+        i_T, i_T1, _mmax = run_scan(
+            engine=engine,
+            config=config,
+            is_heavy=is_heavy,
+            is_nucleon=is_nucleon,
+            debug=DEBUG,
+            obj_E=obj_E,
+            obj_min=obj_min,
+            obj_max=obj_max,
+            Cnt=Cnt,
+            Emax=Emax,
+            Emin=Emin,
+            i_Emax=i_Emax,
+            i_Emin=i_Emin,
+            Dmax=Dmax,
+            Dmin=Dmin,
+            xs_by_j=xs_by_j,
+            ys_by_j=ys_by_j,
+            grey_segments=grey_segments,
         )
 
-        for j in range(1, 29):
-            m_min = float(Obj[j][2]) + float(Obj[j][3])
-            m_max = float(Obj[j][2]) + float(Obj[j][4])
-            p_g = len(Obj[j][2])
-            m_min = float(str(m_min)[:p_g])
-            m_max = float(str(m_max)[:p_g])
-            flag = 0
+        # plot points (batched)
+        draw_points(xs_by_j, ys_by_j, grey_segments, colors)
 
-            for m in range(1, 512):
-                if i_Emax[j, m] == 0:
-                    continue
-                if flag == 0:
-                    print(Obj[j][0], file=f)
-                    flag += 1
+        # report + particle labels
+        print("possible ET:", i_T, "real ET:", i_T1)
+        write_report_and_labels(
+            f=f,
+            sector=sector,
+            Obj=Obj,
+            colors=colors,
+            D_i_N=D_i_N,
+            D_i_c_=D_i_c_,
+            Cnt=Cnt,
+            Emax=Emax,
+            Emin=Emin,
+            i_Emax=i_Emax,
+            i_Emin=i_Emin,
+            Dmax=Dmax,
+            Dmin=Dmin,
+        )
 
-                E_mean = (Emax[j, m] + Emin[j, m]) / 2
-                Di_E = (i_Emax[j, m] - i_Emin[j, m] + 1)
-                i_Emax[j, 0] += abs(Di_E)
-                Cnt_ = Cnt[m]
-                D_i_c = round((abs(Di_E)) * 100 / Cnt_, 5)
-                i_Emax[j, 516] += Cnt_
-                D_i_N[j] = float(i_Emax[j, 0]) * 100 / Cnt[m]
+        # reference lines and legend panels
+        add_reference_lines(sector, i_T)
+        add_legend_panels(sector, i_T, Obj, colors, i_Emax, D_i_c_)
 
-                Emax[j, m] = float(str(Emax[j, m])[:p_g])
-                Emin[j, m] = float(str(Emin[j, m])[:p_g])
-                E_mean = float(str(E_mean)[:p_g])
-
-                print(
-                    "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
-                        "", "max   ", m_max, Emax[j, m], i_Emax[j, m],
-                        Dmax[j, m, 0] / 2, Dmax[j, m, 1] / 2, Dmax[j, m, 2] / 2,
-                        Dmax[j, m, 3] / 2, Dmax[j, m, 4] / 2, Dmax[j, m, 5] / 2,
-                        Dmax[j, m, 6] / 2,
-                    ),
-                    file=f,
-                )
-                print(
-                    "{0:10}{1:5}{2:20}{3:16}{4:8}{5:9}{6:7}{7:2}{8:12}{9:7}{10:2}".format(
-                        "", "mean  ", Obj[j][1], E_mean, Di_E, "", "", "", "", "", ""
-                    ),
-                    file=f,
-                )
-                print(
-                    "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
-                        "", "min   ", m_min, Emin[j, m], i_Emin[j, m],
-                        Dmin[j, m, 0] / 2, Dmin[j, m, 1] / 2, Dmin[j, m, 2] / 2,
-                        Dmin[j, m, 3] / 2, Dmin[j, m, 4] / 2, Dmin[j, m, 5] / 2,
-                        Dmin[j, m, 6] / 2,
-                    ),
-                    file=f,
-                )
-                print(
-                    "{0:10}{1:5}{2:20}{3:15}{4:8}{5:5}{6:8}{7:9}{8:10}{9:2}".format(
-                        "", "", "", "         ∆ abs(i)", abs(Di_E),
-                        "  Cts", Cnt_, "  ∆i/(2pi)", D_i_c, " %"
-                    ),
-                    file=f,
-                )
-
-                # --- Restore particle labels in plot (same as your working version) ---
-                if flag == 1:
-                    if sector is ScanSector.broad:
-                        X = [0, 4, 7, 9, 6, 9, 5, 13, -21, -12, 5, -19, 6, -28, -17, -21, -13, -20, -12, -10, -37, -9, -5.5, -22, -11, 0, 0, 0]
-                        Y = -20
-                        fs = 12
-
-                    if sector is ScanSector.light:
-                        X = [0, 1.2, 2.5, 3, 1, 1, 0.7, 1]
-                        Y = -4
-                        fs = 16
-
-                    if sector is ScanSector.minimal:
-                        X = [0, 0.2, 0.2, 0.2]
-                        Y = -1
-                        fs = 16
-
-                    if sector is ScanSector.nucleon:
-                        X = [0, 2, 4, 5, 3, 4, 4, 8, -13, -7, 2, -11, 2, -14, -7, -11, -7, -12, -8, -3, -0, -0, -0, -22, -11, 0, 0, 0]
-                        Y = -0
-                        fs = 16
-
-                    if sector is ScanSector.heavy:
-                        X = [0, 5, 10, 15, 20, 5, 9, 30, -35, -20, 7, -40, 25, 15, 4, 35, 20, -13, -10, -7, 20, 20, 10, -10, -10, -20, 0, 0, 0]
-                        X[j] *= 2
-                        Y = -50
-                        fs = 12
-
-                    plt.text(
-                        i_Emin[j, m] + 10000 * X[j],
-                        E_mean + Y,
-                        Obj[j][9],
-                        fontsize=fs,
-                        color=F[j],
-                    )
-                    flag = 2
-
-            if j > 1 and m == 511 and i_Emax[j, 516] > 0:
-                D_i_c = round(float(i_Emax[j, 0]) * 100 / i_Emax[j, 516], 5)
-                D = str(D_i_c)
-                D_i_c_[j] = "".rjust(10 - len(D), " ") + D + " %"
-                print(
-                    "{0:10}{1:5}{2:20}{3:15}{4:8}{5:5}{6:8}{7:9}{8:10}{9:2}".format(
-                        "", "total", "", "             Σ ∆i", i_Emax[j, 0],
-                        "  Cts", i_Emax[j, 516], "  ∆i/(2pi)", D_i_c, " %"
-                    ),
-                    file=f,
-                )
-
-            if flag == 0:
-                print(
-                    "{0:10}{1:5}{2:20}{3:16}{4:8}".format(
-                        Obj[j][0], "mean  ", Obj[j][1], "  ", " only with i4 > 1"
-                    ),
-                    file=f,
-                )
-
-        # ---------------------- reference lines (2π powers) ----------------------
-        x_a = 0
-        x_m = i_T * 1 / 5
-
-        plt.ylabel("Energy in $m_e$")
-        plt.xlabel("N")
-
-        TWO_PI = float(2 * cmath.pi)
-        i2_ = TWO_PI ** 2
-        i3_ = TWO_PI ** 3
-        i4_ = TWO_PI ** 4
-        i5_ = 0.5 * (i4_ + i3_ + i2_)
-        i6_ = i4_ + i3_ + i2_
-        i7_ = 2.5 * i4_ - 1.5 * i3_ - 0.5 * i2_
-        i8_ = 1.5 * i4_ + i3_ + i2_
-        i10_ = 1.5 * i4_ + 0.5 * i3_ - 0.5 * i2_
-
-        if sector is ScanSector.broad:
-            plt.plot([x_a, x_m], [i4_, i4_], "k", linewidth=1)
-            plt.text(x_a, i4_ + 15, r"$(2\pi)^4$", fontsize=12, color="blue")
-            plt.plot([x_a, x_m], [i3_, i3_], "k", linewidth=1)
-            plt.text(x_a, i3_ + 15, r"$(2\pi)^3$", fontsize=12, color="blue")
-            plt.plot([x_a, x_m], [i2_, i2_], "k", linewidth=1)
-            plt.text(x_a, i2_ + 15, r"$(2\pi)^2$", fontsize=12, color="blue")
-            plt.plot([x_a, x_m], [i5_, i5_], "k", linewidth=1)
-            plt.text(x_a, i5_ + 15, r"$1/2((2\pi)^4+(2\pi)^3+(2\pi)^2)$", fontsize=12, color="blue")
-            plt.plot([x_a, x_m], [i6_, i6_], "k", linewidth=1)
-            plt.text(x_a, i6_ + 15, r"$(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
-
-        if sector is ScanSector.heavy:
-            plt.plot([x_a, x_m], [i7_, i7_], "k", linewidth=1)
-            plt.text(x_a, i7_ + 15, r"$5/2(2\pi)^4-3/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
-            plt.plot([x_a, 2 * x_m], [i8_, i8_], "k", linewidth=1)
-            plt.text(x_a, i8_ + 15, r"$3/2(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
-            plt.plot([x_a, 3 * x_m], [i10_, i10_], "k", linewidth=1)
-            plt.text(x_a, i10_ + 15, r"$3/2(2\pi)^4+1/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
-
-        if sector in (ScanSector.broad, ScanSector.light):
-            plt.plot([x_a, x_m], [i3_, i3_], "k", linewidth=1)
-            plt.text(x_a, i3_ + 15, r"$(2\pi)^3$", fontsize=12, color="blue")
-
-        if sector in (ScanSector.broad, ScanSector.light, ScanSector.minimal):
-            plt.plot([x_a, x_m], [i2_, i2_], "k", linewidth=1)
-            plt.text(x_a, i2_ + 15, r"$(2\pi)^2$", fontsize=12, color="blue")
-
-        # x-limits similar to your previous plots
-        if sector is ScanSector.minimal:
-            plt.xlim(-1000, i_T + 10000)
-        elif sector is ScanSector.nucleon:
-            plt.xlim(0, i_T)
-        else:
-            plt.xlim(-10000, i_T + 30000)
-
-        # ---------------------- legend panels ----------------------
-        if sector is ScanSector.broad:
-            x_a = i_T * 0.65
-            dx = i_T * 0.08
-            i = -20
-            for jj in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 16, 17, 18, 19]:
-                particle = str(Obj[jj][9])
-                plt.text(x_a, i, Obj[jj][0])
-                plt.text(x_a + dx, i, particle, color=F[jj])
-                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
-                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
-                i += 100
-            plt.text(x_a + 2 * dx, i, "  ∆i  ")
-            plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
-
-        if sector is ScanSector.light:
-            x_a = i_T * 0.70
-            dx = i_T * 0.10
-            i = 0
-            for jj in [1, 2, 3, 4, 5, 6, 7]:
-                particle = str(Obj[jj][9])
-                plt.text(x_a, i, Obj[jj][0])
-                plt.text(x_a + dx, i, particle, color=F[jj])
-                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
-                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
-                i += 20
-            plt.text(x_a + 2 * dx, i, "  ∆i  ")
-            plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
-
-        if sector is ScanSector.minimal:
-            x_a = i_T * 0.89
-            dx = i_T * 0.10
-            i = 0
-            for jj in [1, 2, 3, 4, 5, 6, 7]:
-                particle = str(Obj[jj][9])
-                plt.text(x_a, i, Obj[jj][0])
-                plt.text(x_a + dx, i, particle, color=F[jj])
-                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
-                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
-                i += 5
-            plt.text(x_a + 2 * dx, i, "  ∆i  ")
-            plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
-
-        if sector is ScanSector.nucleon:
-            fs = 14
-            x_a = i_T * 0.70
-            dx = i_T * 0.10
-            i = 0
-            m_H = 1836.152673426 + 1
-            plt.plot([1, i_T], [m_H, m_H], "k", linewidth=1)
-            plt.text(1, 1837, "$m_{Proton} + m_e$", fontsize=fs, color="blue")
-            for jj in [17, 19]:
-                plt.text(1050, float(Obj[jj][2]), Obj[jj][0], fontsize=fs, color=F[jj])
-                particle = str(Obj[jj][9])
-                plt.text(x_a, i, Obj[jj][0])
-                plt.text(x_a + dx, i, particle, color=F[jj])
-                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
-                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
-                i += 20
-
-        if sector is ScanSector.heavy:
-            x_a = i_T * 0.65
-            dx = i_T * 0.085
-            i = 1500
-            for jj in [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]:
-                particle = str(Obj[jj][9])
-                plt.text(x_a, i, Obj[jj][0])
-                plt.text(x_a + dx, i, particle, color=F[jj])
-                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
-                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
-                i += 100
-            plt.text(x_a + 2 * dx, i, "  ∆i  ")
-            plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
-
-    # ---------------------- save/show ----------------------
+    # save/show
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
     fig.savefig(png_path, dpi=100)
