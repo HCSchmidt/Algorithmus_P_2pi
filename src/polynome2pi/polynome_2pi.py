@@ -1,17 +1,16 @@
 import os
-from enum import Enum
 import argparse
 import cmath
+import datetime
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-import matplotlib.colors as mcolors
-import datetime
+
 
 RESULTS_DIR = Path("results")
 RESULTS_DIR.mkdir(exist_ok=True)
@@ -23,64 +22,6 @@ class ScanSector(str, Enum):
     broad = "broad"
     nucleon = "nucleon"
     heavy = "heavy"
-    
-pi = cmath.pi
-
-# ---- Precomputed constants for performance ----
-TWO_PI = 2 * pi
-
-# Precompute powers of (2*pi) used in Energie(). Keep a generous range.
-POW_OFF = 40
-TWO_PI_POW = [0.0] * (2 * POW_OFF + 1)
-for k in range(-POW_OFF, POW_OFF + 1):
-    TWO_PI_POW[k + POW_OFF] = TWO_PI ** k
-    
-# Precompute the C-dependent energy constants (previously recomputed every call).
-E_C_POS = (
-    -pi
-    + 2 * pi ** (-1)
-    - pi ** (-3)
-    + 2 * pi ** (-5)
-    - pi ** (-7)
-    + pi ** (-9)
-    - pi ** (-12)
-    - 2 * pi ** (-14)
-)
-E_C_NEG = 2 * pi - pi ** (-1) + E_C_POS
-E_C_ZERO = pi ** (-12) + 2 * pi ** (-14)
-
-E = [0] * 10
-
-# l in {4,3,2}
-POW_L_4 = TWO_PI_POW[4 + POW_OFF]
-POW_L_3 = TWO_PI_POW[3 + POW_OFF]
-POW_L_2 = TWO_PI_POW[2 + POW_OFF]
-
-# n in {1,0,-1}
-POW_N_1  = TWO_PI_POW[ 1 + POW_OFF]
-POW_N_0  = TWO_PI_POW[ 0 + POW_OFF]
-POW_N_M1 = TWO_PI_POW[-1 + POW_OFF]
-
-# 2*(2π)^(-8) constant used in E6
-POW_NEG8_2 = 2.0 * TWO_PI_POW[-8 + POW_OFF]
-
-# Precompute the 9 combos for -l-n-1 and -l-n (for l∈{4,3,2}, n∈{1,0,-1})
-_LS = (4, 3, 2)
-_NS = (1, 0, -1)
-
-POW_LN_M1 = [[0.0]*3 for _ in range(3)]       # includes factor 2
-POW_LN_0  = [[0.0]*3 for _ in range(3)]       # includes factor 2
-POW_LN_M1_ONLY = [[0.0]*3 for _ in range(3)]  # no factor 2 (for E7)
-POW_LN_0_ONLY  = [[0.0]*3 for _ in range(3)]  # no factor 2 (for E7)
-
-for li, l in enumerate(_LS):
-    for ni, n in enumerate(_NS):
-        POW_LN_M1[li][ni] = 2.0 * TWO_PI_POW[-l - n - 1 + POW_OFF]
-        POW_LN_0[li][ni]  = 2.0 * TWO_PI_POW[-l - n + POW_OFF]
-        POW_LN_M1_ONLY[li][ni] = TWO_PI_POW[-l - n - 1 + POW_OFF]
-        POW_LN_0_ONLY[li][ni]  = TWO_PI_POW[-l - n + POW_OFF]
-# FIX 1) avoid shared-list aliasing (each row independent)
-g = [[0] * 10 for _ in range(10)]
 
 
 @dataclass
@@ -92,91 +33,12 @@ class PolynomeConfig:
 
     @property
     def name(self) -> str:
-        """Human-readable name used for output files."""
         suffix = f"_{self.add_info}" if self.add_info else ""
         return f"Polynom_{self.J4}{self.J3}{self.J2}{suffix}"
 
 
-
-def Energie(i4, i3, i2, i1, i0, i_1, C):
-    # local aliases
-    g2 = g[2]
-    g1 = g[1]
-
-    # set inputs
-    g2[4] = i4
-    g2[3] = i3
-    g2[2] = i2
-    g1[1] = i1
-    g1[0] = i0
-    g1[-1] = i_1
-
-    # local accumulators (avoid writing into E[] repeatedly)
-    if C > 0:
-        E0 = C * E_C_POS
-    elif C < 0:
-        E0 = -C * E_C_NEG
-    else:
-        E0 = E_C_ZERO
-
-    E1 = -(g1[1] * POW_N_1 + g1[0] * POW_N_0 + g1[-1] * POW_N_M1)
-    E2 =  (g2[4] * POW_L_4 + g2[3] * POW_L_3 + g2[2] * POW_L_2)
-
-    E3 = 0.0
-    E4 = 0.0
-    E5 = 0.0
-    E6 = 0.0
-    E7 = 0.0
-
-    # Exact original nested-loop and break semantics, but using precomputed pow tables
-    for li, l in enumerate((4, 3, 2)):
-        for ni, n in enumerate((1, 0, -1)):
-            gl = g2[l]
-            gn = g1[n]
-
-            if gl != 0 and gn != 0:
-                ln = l + n
-
-                if ln < 4:
-                    if gl > 0:
-                        E3 += gl * gn * POW_LN_M1[li][ni]
-                    else:
-                        E4 += gl * gn * POW_LN_0[li][ni]
-
-                if ln > 3:
-                    E5 -= gl * gn * POW_LN_M1[li][ni]
-
-                E6 += (gl * gn if gl * gn >= 0 else -(gl * gn)) * POW_NEG8_2
-                # equivalent to abs(gl*gn) * 2*(2π)^(-8), but avoids abs() call
-
-                g2[l] = 0
-                g1[n] = 0
-                break
-
-            if gl == 0 and gn == 0:
-                E7 -= POW_LN_M1_ONLY[li][ni]
-                E7 -= POW_LN_0_ONLY[li][ni]
-                break
-
-    total = E0 + E1 + E2 + E3 + E4 + E5 + E6 + E7
-
-    # Keep the global E[] updated exactly like before (if other code relies on it)
-    E[0] = total
-    E[1] = E1
-    E[2] = E2
-    E[3] = E3
-    E[4] = E4
-    E[5] = E5
-    E[6] = E6
-    E[7] = E7
-
-    return total
-
-
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(
-        description="Run P(2π) polynomial scan and plot results"
-    )
+    parser = argparse.ArgumentParser(description="Run P(2π) polynomial scan and plot results")
 
     parser.add_argument(
         "--sector",
@@ -195,12 +57,17 @@ def parse_args(argv=None):
         help="Do not open a GUI window; still save the PNG output",
     )
 
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print extra debug output (slow).",
+    )
+
     return parser.parse_args(argv)
 
 
 def select_preset_by_sector(sector: ScanSector) -> PolynomeConfig:
-    """Map a physical scan sector to a polynomial configuration."""
-    if sector is ScanSector.minimal: # was 3
+    if sector is ScanSector.minimal:
         return PolynomeConfig(J4=0, J3=0, J2=1, add_info=sector.value)
 
     if sector is ScanSector.light:
@@ -218,233 +85,345 @@ def select_preset_by_sector(sector: ScanSector) -> PolynomeConfig:
     raise ValueError(f"Unhandled sector: {sector}")
 
 
-def main(argv=None):
+class PolynomeEngine:
+    """
+    Owns all precomputed constants and all scratch state used by energie().
+    This eliminates globals while preserving performance (scratch reused).
+    """
 
+    def __init__(self, pow_off: int = 40):
+        self.pi = cmath.pi
+        self.two_pi = 2 * self.pi
+        self.pow_off = pow_off
+
+        # Precompute powers (2π)^k into a list for fast indexing
+        self.two_pi_pow = [0.0] * (2 * pow_off + 1)
+        for k in range(-pow_off, pow_off + 1):
+            self.two_pi_pow[k + pow_off] = self.two_pi ** k
+
+        # C-dependent constants
+        pi = self.pi
+        self.E_C_POS = (
+            -pi
+            + 2 * pi ** (-1)
+            - pi ** (-3)
+            + 2 * pi ** (-5)
+            - pi ** (-7)
+            + pi ** (-9)
+            - pi ** (-12)
+            - 2 * pi ** (-14)
+        )
+        self.E_C_NEG = 2 * pi - pi ** (-1) + self.E_C_POS
+        self.E_C_ZERO = pi ** (-12) + 2 * pi ** (-14)
+
+        # Scratch state (reused; no per-call allocations)
+        self.E = [0.0] * 10
+        self.g = [[0.0] * 10 for _ in range(10)]  # no aliasing
+
+        # Hot precomputations for energie()
+        off = self.pow_off
+        p = self.two_pi_pow
+
+        # (2π)^l for l in {4,3,2}
+        self.POW_L_4 = p[4 + off]
+        self.POW_L_3 = p[3 + off]
+        self.POW_L_2 = p[2 + off]
+
+        # (2π)^n for n in {1,0,-1}
+        self.POW_N_1 = p[1 + off]
+        self.POW_N_0 = p[0 + off]
+        self.POW_N_M1 = p[-1 + off]
+
+        # 2*(2π)^(-8) constant used in E6
+        self.POW_NEG8_2 = 2.0 * p[-8 + off]
+
+        # Precompute 9 combos for -l-n-1 and -l-n
+        LS = (4, 3, 2)
+        NS = (1, 0, -1)
+
+        # include factor 2 for E3/E4/E5 terms
+        self.POW_LN_M1 = [[0.0] * 3 for _ in range(3)]      # 2*(2π)^(-l-n-1)
+        self.POW_LN_0 = [[0.0] * 3 for _ in range(3)]       # 2*(2π)^(-l-n)
+
+        # exclude factor 2 for E7
+        self.POW_LN_M1_ONLY = [[0.0] * 3 for _ in range(3)] # (2π)^(-l-n-1)
+        self.POW_LN_0_ONLY = [[0.0] * 3 for _ in range(3)]  # (2π)^(-l-n)
+
+        for li, l in enumerate(LS):
+            for ni, n in enumerate(NS):
+                self.POW_LN_M1[li][ni] = 2.0 * p[-l - n - 1 + off]
+                self.POW_LN_0[li][ni] = 2.0 * p[-l - n + off]
+                self.POW_LN_M1_ONLY[li][ni] = p[-l - n - 1 + off]
+                self.POW_LN_0_ONLY[li][ni] = p[-l - n + off]
+
+    def energie(self, i4, i3, i2, i1, i0, i_1, C):
+        """
+        Behavior-identical to the original Energie() nested-loop logic,
+        but faster due to:
+          - indexed pow tables (no dict)
+          - local accumulators, fewer list writes
+          - precomputed constants for the 9 (l,n) combos
+        """
+        g2 = self.g[2]
+        g1 = self.g[1]
+
+        # set inputs
+        g2[4] = i4
+        g2[3] = i3
+        g2[2] = i2
+        g1[1] = i1
+        g1[0] = i0
+        g1[-1] = i_1
+
+        # C-dependent base term
+        if C > 0:
+            E0 = C * self.E_C_POS
+        elif C < 0:
+            E0 = -C * self.E_C_NEG
+        else:
+            E0 = self.E_C_ZERO
+
+        # gluons and fermions
+        E2 = g2[4] * self.POW_L_4 + g2[3] * self.POW_L_3 + g2[2] * self.POW_L_2
+        E1 = -(g1[1] * self.POW_N_1 + g1[0] * self.POW_N_0 + g1[-1] * self.POW_N_M1)
+
+        E3 = 0.0
+        E4 = 0.0
+        E5 = 0.0
+        E6 = 0.0
+        E7 = 0.0
+
+        # exact original loop/break semantics
+        for li, l in enumerate((4, 3, 2)):
+            for ni, n in enumerate((1, 0, -1)):
+                gl = g2[l]
+                gn = g1[n]
+
+                if gl != 0 and gn != 0:
+                    ln = l + n
+
+                    if ln < 4:
+                        if gl > 0:
+                            E3 += gl * gn * self.POW_LN_M1[li][ni]
+                        else:
+                            E4 += gl * gn * self.POW_LN_0[li][ni]
+
+                    if ln > 3:
+                        E5 -= gl * gn * self.POW_LN_M1[li][ni]
+
+                    prod = gl * gn
+                    E6 += (prod if prod >= 0 else -prod) * self.POW_NEG8_2
+
+                    g2[l] = 0
+                    g1[n] = 0
+                    break
+
+                if gl == 0 and gn == 0:
+                    E7 -= self.POW_LN_M1_ONLY[li][ni]
+                    E7 -= self.POW_LN_0_ONLY[li][ni]
+                    break
+
+        total = E0 + E1 + E2 + E3 + E4 + E5 + E6 + E7
+
+        # preserve side-effects (main loop reads E[0])
+        E = self.E
+        E[0] = total
+        E[1] = E1
+        E[2] = E2
+        E[3] = E3
+        E[4] = E4
+        E[5] = E5
+        E[6] = E6
+        E[7] = E7
+
+        return total
+
+
+def main(argv=None):
     start_time_stamp = datetime.datetime.now()
+
     args = parse_args(argv)
     sector = args.sector
     config = select_preset_by_sector(sector)
     no_show = args.no_show
+    DEBUG = args.debug
 
-    DEBUG = False
+    # hoist sector checks (avoid Enum comparisons in the hot loop)
+    is_heavy = (sector is ScanSector.heavy)
+    is_nucleon = (sector is ScanSector.nucleon)
 
-    with open(os.path.join(RESULTS_DIR, f"{config.name}.txt"), "w", encoding="utf8") as f:
-        i_T = 0
-        i_T1 = 0
+    engine = PolynomeEngine()
+    energie = engine.energie        # local bind
+    E_local = engine.E              # local bind
 
-        i1 = 0
-        i0 = 0
-        i_1 = 0
-        mmax = 0
-        m = 0
+    # ---------------------- data structures ----------------------
+    i_T = 0
+    i_T1 = 0
+    mmax = 0
+    ct = 0
 
-        j = 0
-        D_i_N = [0] * 300
+    D_i_N = [0.0] * 300
+    D_i_c_ = [""] * 35
+    Cnt = [0] * 520
 
-        # FIX 1) avoid shared-list aliasing for big matrices too
-        Obj = [[0] * 13 for _ in range(35)]
-        N_E = [0] * 100000
-        N_T = [[0] * 100 for _ in range(100)]
-        E_t = [0] * 100000
+    Emax = np.zeros((35, 520), dtype=float)
+    Emin = np.zeros((35, 520), dtype=float)
+    i_Emax = np.zeros((35, 520), dtype=int)
+    i_Emin = np.zeros((35, 520), dtype=int)
+    Dmax = np.zeros((35, 520, 7), dtype=int)
+    Dmin = np.zeros((35, 520, 7), dtype=int)
 
-        X = [0] * 35
-        D_i_c_ = [0] * 35
-        Cnt = [0] * 520
-        Emax = np.zeros((35, 520), dtype=float)
-        Emin = np.zeros((35, 520), dtype=float)
-        i_Emax = np.zeros((35, 520), dtype=int)
-        i_Emin = np.zeros((35, 520), dtype=int)
-        Dmax = np.zeros((35, 520, 7), dtype=int)
-        Dmin = np.zeros((35, 520, 7), dtype=int)
+    # colors (index 1..26 used)
+    F = [
+        "#FFFFFF", "#000000", "#F60000", "#05FB4F", "#CFCF00", "#000000", "#07FCE4",
+        "#F700D2", "#00F73E", "#7BB91F", "#A9BF06", "#047619", "#047619", "#789E20",
+        "#CFCF00", "#CF00B7", "#EC61A9", "#FA9805", "#4200F6", "#495999", "#B91F50",
+        "#CB4088", "#F90404", "#000000", "#4D8E2F", "#499999", "#F50606", "#146108",
+    ]
 
-        Obj = [
-            ["Name", "m_e", "E", "-SD", "+SD", "Halbwertszeit T in sec", "Charge", "Spin", "P.", "name"],
-            ["e", "1.00000000000(31)", "1.00000000000", "-0.005", "0.000", " ", "-1", "1/2", "", "e"],
-            ["u", "4.18(-0.51)(0.96)", "4.18", "-0.51", "0.96", " ", "+2/3", "", "", "u"],
-            ["d", "9.14(-0.33)(0.94)", "9.14", "-0.33", "0.94", " ", "-1/3", "", "", "d"],
-            ["s", "182.8(-6.6)(16.8)", "182.8", "-6.6", "16.8", " ", "-1/3", "", "", "s"],
-            ["Muon", "206.7682827(46)", "206.7682827", "-0.0000046", "0.0000046", "2.1969811(22) e -6", "0", "1", "", "muon"],
-            ["Pion 0", "264.1430(9)", "264.1430", "-0.0009", "0.0009", "8.52(18) e -17", "0", "0", "-", r"$u\overline{d}-\overline{u}d$"],
-            ["Pion +-", "273.13243(35)", "273.13243", "-0.00035", "0.00035", "2.6033(5) e -8", "+-1", "0", "-", r"$u\overline{u},\overline{d}d$"],
-            ["K +-", "966.102(21)", "966.102", "-0.021", "0.021", "1.2380(20) e -8", "+-1", "0", "-", r"$u\overline{s},s\overline{u}$"],
-            ["KL 0", "973.800(26)", "973.800", "-0.026", "0.026", "5.116(21) e -8", "0", "0", "-", r"$d\overline{s},s\overline{d}$  "],
-            ["KS 0", "973.800(26)", "973.800", "-0.026", "0.026", "8.954(4) e -11", "0", "", "", r"$d\overline{s},s\overline{d}$"],
-            ["Eta", "1072.139(35)", "1072.139", "-0.035", "0.035", "5 e -19", "0", "0", "-", r"$u\overline{u}+\overline{d}d-2s\overline{s}$"],
-            ["Rho +-", "1506(1)", "1506", "-1", "1", "4 e -24", "-+1", "1", "-", r"$u\overline{u},\overline{d}d$"],
-            ["Rho 0", "1517.14(49)", "1517.14", "-0.49", "0.49", "4 e -24", "0", "1", "-", r"$u\overline{u}-\overline{d}d$"],
-            ["Omega", "1531.62(25)", "1531.62", "-0.25", "0.25", "7.75(7) e -23", "0", "1", "-", r"$u\overline{u}+\overline{d}d$"],
-            ["K* +-", "1745.2(1)", "1745.2", "-0.1", "0.1", "1.3 e -23", "+-1", "", "", r"$d\overline{s},s\overline{d}$"],
-            ["K* 0", "1752.6(1)", "1752.6", "-0.1", "0.1", "1.3 e -23", "0", "", "", r"$d\overline{s},s\overline{d}$"],
-            ["Proton", "1836.152673426(32)", "1836.152673426", "-0.000000032", "0.000000032", " ", "1", "1/2", "1", "uud"],
-            ["H", "1837.47(-0.29)(0.20)", "1837.47", "-0.29", "0.20", " ", "0", "", "", "H"],
-            ["Neutron", "1838.68366200(74)", "1838.68366200", "-0.00000074", "0.00000074", "878.4(5)", "0", "1/2", "1", "udd"],
-            ["Eta`", "1874.32(11)", "1874.32", "-0.11", "0.11", "3.32(15) e -21", "0", "0", "-", r"$u\overline{u}+\overline{d}d+s\overline{s}$"],
-            ["Phi", "1995.035(31)", "1995.035", "-0.031", "0.031", "1.55(0,01) e -22", "0", "1", "-", r"$s\overline{s}(most)$"],
-            ["c", "2485(-39)(39)", "2485", "-39", "39", " ", "+2/3", "", "", "c", 0],
-            ["Tau", "3477.23(23)", "3477.23", "-0.23", "0.23", "290.3(5) e -15", "-1", "1/2", "", "tau"],
-            ["D 0", "3649.38(10)", "3649.38", "-0.10", "0.10", "4.101(15) e -13", "+-1", "0", "-", r"$c\overline{u},u\overline{c}$"],
-            ["D +", "3658.81(10)", "3658.81", "-0.10", "0.10", "1.040(7) e -12", "+-1", "0", "-", r"$c\overline{d},d\overline{c}$"],
-            ["Deuteron", "3670.4829677(11)", "3670.4829677", "-0.0000011", "0.0000011", " ", "0", "", "", "D", -5.5],
-            ["DS +", "3851.94(13)", "3851.94", "-0.13", "0.13", "5.04(4) e -13", "+-1", "0", "-", r"$c\overline{s},s\overline{c}$"],
-            ["Higgs", "244830(210)", "244830", "-210", "210", " ", "0", "0", "", "Higgs"],
-            ["t", "337710(570)", "337710", "-570", "570", " ", "+2/3", "", "", "t"],
-        ]
+    # Particle table (kept from your current version)
+    Obj = [
+        ["Name", "m_e", "E", "-SD", "+SD", "Halbwertszeit T in sec", "Charge", "Spin", "P.", "name"],
+        ["e", "1.00000000000(31)", "1.00000000000", "-0.005", "0.000", " ", "-1", "1/2", "", "e"],
+        ["u", "4.18(-0.51)(0.96)", "4.18", "-0.51", "0.96", " ", "+2/3", "", "", "u"],
+        ["d", "9.14(-0.33)(0.94)", "9.14", "-0.33", "0.94", " ", "-1/3", "", "", "d"],
+        ["s", "182.8(-6.6)(16.8)", "182.8", "-6.6", "16.8", " ", "-1/3", "", "", "s"],
+        ["Muon", "206.7682827(46)", "206.7682827", "-0.0000046", "0.0000046", "2.1969811(22) e -6", "0", "1", "", "muon"],
+        ["Pion 0", "264.1430(9)", "264.1430", "-0.0009", "0.0009", "8.52(18) e -17", "0", "0", "-", r"$u\overline{d}-\overline{u}d$"],
+        ["Pion +-", "273.13243(35)", "273.13243", "-0.00035", "0.00035", "2.6033(5) e -8", "+-1", "0", "-", r"$u\overline{u},\overline{d}d$"],
+        ["K +-", "966.102(21)", "966.102", "-0.021", "0.021", "1.2380(20) e -8", "+-1", "0", "-", r"$u\overline{s},s\overline{u}$"],
+        ["KL 0", "973.800(26)", "973.800", "-0.026", "0.026", "5.116(21) e -8", "0", "0", "-", r"$d\overline{s},s\overline{d}$  "],
+        ["KS 0", "973.800(26)", "973.800", "-0.026", "0.026", "8.954(4) e -11", "0", "", "", r"$d\overline{s},s\overline{d}$"],
+        ["Eta", "1072.139(35)", "1072.139", "-0.035", "0.035", "5 e -19", "0", "0", "-", r"$u\overline{u}+\overline{d}d-2s\overline{s}$"],
+        ["Rho +-", "1506(1)", "1506", "-1", "1", "4 e -24", "-+1", "1", "-", r"$u\overline{u},\overline{d}d$"],
+        ["Rho 0", "1517.14(49)", "1517.14", "-0.49", "0.49", "4 e -24", "0", "1", "-", r"$u\overline{u}-\overline{d}d$"],
+        ["Omega", "1531.62(25)", "1531.62", "-0.25", "0.25", "7.75(7) e -23", "0", "1", "-", r"$u\overline{u}+\overline{d}d$"],
+        ["K* +-", "1745.2(1)", "1745.2", "-0.1", "0.1", "1.3 e -23", "+-1", "", "", r"$d\overline{s},s\overline{d}$"],
+        ["K* 0", "1752.6(1)", "1752.6", "-0.1", "0.1", "1.3 e -23", "0", "", "", r"$d\overline{s},s\overline{d}$"],
+        ["Proton", "1836.152673426(32)", "1836.152673426", "-0.000000032", "0.000000032", " ", "1", "1/2", "1", "uud"],
+        ["H", "1837.47(-0.29)(0.20)", "1837.47", "-0.29", "0.20", " ", "0", "", "", "H"],
+        ["Neutron", "1838.68366200(74)", "1838.68366200", "-0.00000074", "0.00000074", "878.4(5)", "0", "1/2", "1", "udd"],
+        ["Eta`", "1874.32(11)", "1874.32", "-0.11", "0.11", "3.32(15) e -21", "0", "0", "-", r"$u\overline{u}+\overline{d}d+s\overline{s}$"],
+        ["Phi", "1995.035(31)", "1995.035", "-0.031", "0.031", "1.55(0,01) e -22", "0", "1", "-", r"$s\overline{s}(most)$"],
+        ["c", "2485(-39)(39)", "2485", "-39", "39", " ", "+2/3", "", "", "c", 0],
+        ["Tau", "3477.23(23)", "3477.23", "-0.23", "0.23", "290.3(5) e -15", "-1", "1/2", "", "tau"],
+        ["D 0", "3649.38(10)", "3649.38", "-0.10", "0.10", "4.101(15) e -13", "+-1", "0", "-", r"$c\overline{u},u\overline{c}$"],
+        ["D +", "3658.81(10)", "3658.81", "-0.10", "0.10", "1.040(7) e -12", "+-1", "0", "-", r"$c\overline{d},d\overline{c}$"],
+        ["Deuteron", "3670.4829677(11)", "3670.4829677", "-0.0000011", "0.0000011", " ", "0", "", "", "D", -5.5],
+        ["DS +", "3851.94(13)", "3851.94", "-0.13", "0.13", "5.04(4) e -13", "+-1", "0", "-", r"$c\overline{s},s\overline{c}$"],
+        ["Higgs", "244830(210)", "244830", "-210", "210", " ", "0", "0", "", "Higgs"],
+        ["t", "337710(570)", "337710", "-570", "570", " ", "+2/3", "", "", "t"],
+    ]
 
-        # Precompute numeric values for fast matching (avoid float() in the inner loop)
-        obj_E = [0.0] * 27
-        obj_min = [0.0] * 27
-        obj_max = [0.0] * 27
-        for jj in range(1, 27):
-            obj_E[jj] = float(Obj[jj][2])
-            obj_min[jj] = float(Obj[jj][3])
-            obj_max[jj] = float(Obj[jj][4])
+    # Precompute numeric values for matching (avoid float conversion in hot loop)
+    obj_E = [0.0] * 27
+    obj_min = [0.0] * 27
+    obj_max = [0.0] * 27
+    for jj in range(1, 27):
+        obj_E[jj] = float(Obj[jj][2])
+        obj_min[jj] = float(Obj[jj][3])
+        obj_max[jj] = float(Obj[jj][4])
 
-        F = [
-            "#FFFFFF",
-            "#000000",
-            "#F60000",
-            "#05FB4F",
-            "#CFCF00",
-            "#000000",
-            "#07FCE4",
-            "#F700D2",
-            "#00F73E",
-            "#7BB91F",
-            "#A9BF06",
-            "#047619",
-            "#047619",
-            "#789E20",
-            "#CFCF00",
-            "#CF00B7",
-            "#EC61A9",
-            "#FA9805",
-            "#4200F6",
-            "#495999",
-            "#B91F50",
-            "#CB4088",
-            "#F90404",
-            "#000000",
-            "#4D8E2F",
-            "#499999",
-            "#F50606",
-            "#146108",
-        ]
+    # Plot batching
+    xs_by_j = [[] for _ in range(27)]
+    ys_by_j = [[] for _ in range(27)]
+    grey_segments = []
 
-        # --- Plot batching for performance ---
-        xs_by_j = {jj: [] for jj in range(1, 27)}
-        ys_by_j = {jj: [] for jj in range(1, 27)}
-        grey_segments = []
+    # Output paths
+    txt_path = RESULTS_DIR / f"{config.name}.txt"
+    png_path = RESULTS_DIR / f"{config.name}.png"
 
-        # FIX 2) local bindings for faster inner-loop access (locals are faster than globals)
-        E_local = E
-        Emax_local = Emax
-        Emin_local = Emin
-        i_Emax_local = i_Emax
-        i_Emin_local = i_Emin
-        Dmax_local = Dmax
-        Dmin_local = Dmin
-        obj_E_local = obj_E
-        obj_min_local = obj_min
-        obj_max_local = obj_max
-        xs_by_j_local = xs_by_j
-        ys_by_j_local = ys_by_j
-        grey_segments_local = grey_segments
-        Energie_func = Energie  # local bind function lookup too
-        
-        is_minimal = (sector is ScanSector.minimal)
-        is_light = (sector is ScanSector.light)
-        is_broad = (sector is ScanSector.broad)
-        is_nucleon = (sector is ScanSector.nucleon)
-        is_heavy = (sector is ScanSector.heavy)
+    with open(txt_path, "w", encoding="utf8") as f:
+        # ---------------------- scan ----------------------
+        for i4 in range(-2 * config.J4, 2 * config.J4 + 1):
+            i4h = 0.5 * i4
+            for i3 in range(-2 * config.J3, 2 * config.J3 + 1):
+                i3h = 0.5 * i3
+                for i2 in range(-2 * config.J2, 2 * config.J2 + 1):
+                    i2h = 0.5 * i2
 
-        for i5 in [0]:
-            for i4 in range(-2 * config.J4, 2 * config.J4 + 1):
-                for i3 in range(-2 * config.J3, 2 * config.J3 + 1):
-                    for i2 in range(-2 * config.J2, 2 * config.J2 + 1):
-                        if DEBUG:
-                            print("i4", i4, "i3", i3, "i2", i2, "i1", i1, "i_T1", i_T1)
+                    if DEBUG:
+                        print("i4", i4, "i3", i3, "i2", i2, "i_T1", i_T1)
 
-                        for i1 in range(-6, 7):
-                            for i0 in range(-6, 7):
-                                for i_1 in range(-6, 7):
-                                    for C in range(-2, 3):
-                                        Energie_func(i4 / 2, i3 / 2, i2 / 2, i1 / 2, i0 / 2, i_1 / 2, C / 2)
+                    for i1 in range(-6, 7):
+                        i1h = 0.5 * i1
+                        for i0 in range(-6, 7):
+                            i0h = 0.5 * i0
+                            for i_1 in range(-6, 7):
+                                i_1h = 0.5 * i_1
+                                for C in range(-2, 3):
+                                    Ch = 0.5 * C
 
-                                        # FIX 3) read E0 once per combination
-                                        E0 = E_local[0]
-                                        if E0 < 0:
-                                            continue
+                                    energie(i4h, i3h, i2h, i1h, i0h, i_1h, Ch)
+                                    E0 = E_local[0]
+                                    if E0 < 0:
+                                        continue
 
-                                        m = int(256 + 32 * i4 + 4 * i3 + i2)
-                                        if m > mmax:
-                                            mmax = m
-                                            ct = 0
-                                        ct += 1
-                                        Cnt[mmax] = ct
+                                    m = int(256 + 32 * i4 + 4 * i3 + i2)
+                                    if m > mmax:
+                                        mmax = m
+                                        ct = 0
+                                    ct += 1
+                                    Cnt[mmax] = ct
 
-                                        if is_heavy and E0 < 1500:
-                                            continue
-                                        if is_nucleon and (E0 < 1836 or E0 > 1839):
-                                            continue
+                                    if is_heavy and E0 < 1500:
+                                        continue
+                                    if is_nucleon and (E0 < 1836 or E0 > 1839):
+                                        continue
 
-                                        i_T += 1
-                                        flag = 0
+                                    i_T += 1
+                                    flag_match = 0
 
-                                        for j in range(1, 27):
-                                            Ej = obj_E_local[j]
-                                            if (E0 - Ej <= obj_max_local[j]) and (E0 - Ej >= obj_min_local[j]):
-                                                i_T1 += 1
-                                                if Emax_local[j, m] <= E0:
-                                                    Emax_local[j, m] = E0
-                                                    i_Emax_local[j, m] = i_T
-                                                    Dmax_local[j, m, 0] = i4
-                                                    Dmax_local[j, m, 1] = i3
-                                                    Dmax_local[j, m, 2] = i2
-                                                    Dmax_local[j, m, 3] = i1
-                                                    Dmax_local[j, m, 4] = i0
-                                                    Dmax_local[j, m, 5] = i_1
-                                                    Dmax_local[j, m, 6] = C
-                                                if Emin_local[j, m] >= E0 or Emin_local[j, m] == 0:
-                                                    Emin_local[j, m] = E0
-                                                    i_Emin_local[j, m] = i_T
-                                                    Dmin_local[j, m, 0] = i4
-                                                    Dmin_local[j, m, 1] = i3
-                                                    Dmin_local[j, m, 2] = i2
-                                                    Dmin_local[j, m, 3] = i1
-                                                    Dmin_local[j, m, 4] = i0
-                                                    Dmin_local[j, m, 5] = i_1
-                                                    Dmin_local[j, m, 6] = C
+                                    for j in range(1, 27):
+                                        Ej = obj_E[j]
+                                        if (E0 - Ej <= obj_max[j]) and (E0 - Ej >= obj_min[j]):
+                                            i_T1 += 1
 
-                                                xs_by_j_local[j].append(i_T)
-                                                ys_by_j_local[j].append(E0)
-                                                flag = 1
+                                            if Emax[j, m] <= E0:
+                                                Emax[j, m] = E0
+                                                i_Emax[j, m] = i_T
+                                                Dmax[j, m, 0] = i4
+                                                Dmax[j, m, 1] = i3
+                                                Dmax[j, m, 2] = i2
+                                                Dmax[j, m, 3] = i1
+                                                Dmax[j, m, 4] = i0
+                                                Dmax[j, m, 5] = i_1
+                                                Dmax[j, m, 6] = C
 
-                                        if E0 > 0 and flag == 0:
-                                            grey_segments_local.append([(i_T, E0), (i_T + 1, E0)])
+                                            if Emin[j, m] >= E0 or Emin[j, m] == 0:
+                                                Emin[j, m] = E0
+                                                i_Emin[j, m] = i_T
+                                                Dmin[j, m, 0] = i4
+                                                Dmin[j, m, 1] = i3
+                                                Dmin[j, m, 2] = i2
+                                                Dmin[j, m, 3] = i1
+                                                Dmin[j, m, 4] = i0
+                                                Dmin[j, m, 5] = i_1
+                                                Dmin[j, m, 6] = C
 
+                                            xs_by_j[j].append(i_T)
+                                            ys_by_j[j].append(E0)
+                                            flag_match = 1
+
+                                    if E0 > 0 and flag_match == 0:
+                                        grey_segments.append([(i_T, E0), (i_T + 1, E0)])
+
+        # ---------------------- draw points (batched) ----------------------
         for j in range(1, 27):
             if xs_by_j[j]:
                 plt.scatter(xs_by_j[j], ys_by_j[j], s=80, c=F[j], marker=".", linewidths=0)
+
         if grey_segments:
             lc = LineCollection(grey_segments, colors="#C0BCBC", linewidths=1)
             plt.gca().add_collection(lc)
 
+        # ---------------------- write report + restore labels ----------------------
         print("..............   plotting   .................")
-        print("possible ET: ", i_T, "real ET: ", i_T1)
+        print("possible ET:", i_T, "real ET:", i_T1)
+
         print(
             "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
-                "particle",
-                "",
-                "",
-                "     theory: E",
-                "   total ",
-                "  i4",
-                "  i3",
-                "  i2",
-                "  i1",
-                "  i0",
-                " i-1",
-                "  C",
+                "particle", "", "", "     theory: E", "   total ", "  i4", "  i3", "  i2", "  i1", "  i0", " i-1", "  C"
             ),
             file=f,
         )
@@ -470,25 +449,17 @@ def main(argv=None):
                 Cnt_ = Cnt[m]
                 D_i_c = round((abs(Di_E)) * 100 / Cnt_, 5)
                 i_Emax[j, 516] += Cnt_
-                # NOTE: left as-is (this is outside the hot scan loop)
                 D_i_N[j] = float(i_Emax[j, 0]) * 100 / Cnt[m]
+
                 Emax[j, m] = float(str(Emax[j, m])[:p_g])
                 Emin[j, m] = float(str(Emin[j, m])[:p_g])
                 E_mean = float(str(E_mean)[:p_g])
 
                 print(
                     "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
-                        "",
-                        "max   ",
-                        m_max,
-                        Emax[j, m],
-                        i_Emax[j, m],
-                        Dmax[j, m, 0] / 2,
-                        Dmax[j, m, 1] / 2,
-                        Dmax[j, m, 2] / 2,
-                        Dmax[j, m, 3] / 2,
-                        Dmax[j, m, 4] / 2,
-                        Dmax[j, m, 5] / 2,
+                        "", "max   ", m_max, Emax[j, m], i_Emax[j, m],
+                        Dmax[j, m, 0] / 2, Dmax[j, m, 1] / 2, Dmax[j, m, 2] / 2,
+                        Dmax[j, m, 3] / 2, Dmax[j, m, 4] / 2, Dmax[j, m, 5] / 2,
                         Dmax[j, m, 6] / 2,
                     ),
                     file=f,
@@ -501,60 +472,56 @@ def main(argv=None):
                 )
                 print(
                     "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
-                        "",
-                        "min   ",
-                        m_min,
-                        Emin[j, m],
-                        i_Emin[j, m],
-                        Dmin[j, m, 0] / 2,
-                        Dmin[j, m, 1] / 2,
-                        Dmin[j, m, 2] / 2,
-                        Dmin[j, m, 3] / 2,
-                        Dmin[j, m, 4] / 2,
-                        Dmin[j, m, 5] / 2,
+                        "", "min   ", m_min, Emin[j, m], i_Emin[j, m],
+                        Dmin[j, m, 0] / 2, Dmin[j, m, 1] / 2, Dmin[j, m, 2] / 2,
+                        Dmin[j, m, 3] / 2, Dmin[j, m, 4] / 2, Dmin[j, m, 5] / 2,
                         Dmin[j, m, 6] / 2,
                     ),
                     file=f,
                 )
                 print(
                     "{0:10}{1:5}{2:20}{3:15}{4:8}{5:5}{6:8}{7:9}{8:10}{9:2}".format(
-                        "",
-                        "",
-                        "",
-                        "         ∆ abs(i)",
-                        abs(Di_E),
-                        "  Cts",
-                        Cnt_,
-                        "  ∆i/(2pi)",
-                        D_i_c,
-                        " %",
+                        "", "", "", "         ∆ abs(i)", abs(Di_E),
+                        "  Cts", Cnt_, "  ∆i/(2pi)", D_i_c, " %"
                     ),
                     file=f,
                 )
 
+                # --- Restore particle labels in plot (same as your working version) ---
                 if flag == 1:
-                    if is_broad:
+                    if sector is ScanSector.broad:
                         X = [0, 4, 7, 9, 6, 9, 5, 13, -21, -12, 5, -19, 6, -28, -17, -21, -13, -20, -12, -10, -37, -9, -5.5, -22, -11, 0, 0, 0]
                         Y = -20
                         fs = 12
-                    if is_light:
+
+                    if sector is ScanSector.light:
                         X = [0, 1.2, 2.5, 3, 1, 1, 0.7, 1]
                         Y = -4
                         fs = 16
-                    if is_minimal:
+
+                    if sector is ScanSector.minimal:
                         X = [0, 0.2, 0.2, 0.2]
                         Y = -1
                         fs = 16
-                    if is_nucleon:
+
+                    if sector is ScanSector.nucleon:
                         X = [0, 2, 4, 5, 3, 4, 4, 8, -13, -7, 2, -11, 2, -14, -7, -11, -7, -12, -8, -3, -0, -0, -0, -22, -11, 0, 0, 0]
                         Y = -0
                         fs = 16
-                    if is_heavy:
+
+                    if sector is ScanSector.heavy:
                         X = [0, 5, 10, 15, 20, 5, 9, 30, -35, -20, 7, -40, 25, 15, 4, 35, 20, -13, -10, -7, 20, 20, 10, -10, -10, -20, 0, 0, 0]
                         X[j] *= 2
                         Y = -50
                         fs = 12
-                    plt.text(i_Emin[j, m] + 10000 * X[j], E_mean + Y, Obj[j][9], fontsize=fs, color=F[j])
+
+                    plt.text(
+                        i_Emin[j, m] + 10000 * X[j],
+                        E_mean + Y,
+                        Obj[j][9],
+                        fontsize=fs,
+                        color=F[j],
+                    )
                     flag = 2
 
             if j > 1 and m == 511 and i_Emax[j, 516] > 0:
@@ -563,17 +530,8 @@ def main(argv=None):
                 D_i_c_[j] = "".rjust(10 - len(D), " ") + D + " %"
                 print(
                     "{0:10}{1:5}{2:20}{3:15}{4:8}{5:5}{6:8}{7:9}{8:10}{9:2}".format(
-                        "",
-                        "total",
-                        "",
-                        "             Σ ∆i",
-                        i_Emax[j, 0],
-                        "  Cts",
-                        i_Emax[j, 516],
-                        "  ∆i/(2pi)",
-                        D_i_c,
-                        " %",
-                        "\n",
+                        "", "total", "", "             Σ ∆i", i_Emax[j, 0],
+                        "  Cts", i_Emax[j, 516], "  ∆i/(2pi)", D_i_c, " %"
                     ),
                     file=f,
                 )
@@ -586,99 +544,103 @@ def main(argv=None):
                     file=f,
                 )
 
-            x_a = 0
-            x_m = i_T * 1 / 5
-            plt.ylabel("Energy in $m_e$")
-            plt.xlabel("N")
+        # ---------------------- reference lines (2π powers) ----------------------
+        x_a = 0
+        x_m = i_T * 1 / 5
+
+        plt.ylabel("Energy in $m_e$")
+        plt.xlabel("N")
+
+        TWO_PI = float(2 * cmath.pi)
+        i2_ = TWO_PI ** 2
+        i3_ = TWO_PI ** 3
+        i4_ = TWO_PI ** 4
+        i5_ = 0.5 * (i4_ + i3_ + i2_)
+        i6_ = i4_ + i3_ + i2_
+        i7_ = 2.5 * i4_ - 1.5 * i3_ - 0.5 * i2_
+        i8_ = 1.5 * i4_ + i3_ + i2_
+        i10_ = 1.5 * i4_ + 0.5 * i3_ - 0.5 * i2_
+
+        if sector is ScanSector.broad:
+            plt.plot([x_a, x_m], [i4_, i4_], "k", linewidth=1)
+            plt.text(x_a, i4_ + 15, r"$(2\pi)^4$", fontsize=12, color="blue")
+            plt.plot([x_a, x_m], [i3_, i3_], "k", linewidth=1)
+            plt.text(x_a, i3_ + 15, r"$(2\pi)^3$", fontsize=12, color="blue")
+            plt.plot([x_a, x_m], [i2_, i2_], "k", linewidth=1)
+            plt.text(x_a, i2_ + 15, r"$(2\pi)^2$", fontsize=12, color="blue")
+            plt.plot([x_a, x_m], [i5_, i5_], "k", linewidth=1)
+            plt.text(x_a, i5_ + 15, r"$1/2((2\pi)^4+(2\pi)^3+(2\pi)^2)$", fontsize=12, color="blue")
+            plt.plot([x_a, x_m], [i6_, i6_], "k", linewidth=1)
+            plt.text(x_a, i6_ + 15, r"$(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
+
+        if sector is ScanSector.heavy:
+            plt.plot([x_a, x_m], [i7_, i7_], "k", linewidth=1)
+            plt.text(x_a, i7_ + 15, r"$5/2(2\pi)^4-3/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
+            plt.plot([x_a, 2 * x_m], [i8_, i8_], "k", linewidth=1)
+            plt.text(x_a, i8_ + 15, r"$3/2(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
+            plt.plot([x_a, 3 * x_m], [i10_, i10_], "k", linewidth=1)
+            plt.text(x_a, i10_ + 15, r"$3/2(2\pi)^4+1/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
+
+        if sector in (ScanSector.broad, ScanSector.light):
+            plt.plot([x_a, x_m], [i3_, i3_], "k", linewidth=1)
+            plt.text(x_a, i3_ + 15, r"$(2\pi)^3$", fontsize=12, color="blue")
+
+        if sector in (ScanSector.broad, ScanSector.light, ScanSector.minimal):
+            plt.plot([x_a, x_m], [i2_, i2_], "k", linewidth=1)
+            plt.text(x_a, i2_ + 15, r"$(2\pi)^2$", fontsize=12, color="blue")
+
+        # x-limits similar to your previous plots
+        if sector is ScanSector.minimal:
+            plt.xlim(-1000, i_T + 10000)
+        elif sector is ScanSector.nucleon:
+            plt.xlim(0, i_T)
+        else:
             plt.xlim(-10000, i_T + 30000)
 
-            i2_ = float(TWO_PI) ** 2
-            i3_ = float(TWO_PI) ** 3
-            i4_ = float(TWO_PI) ** 4
-            i5_ = 1 / 2 * (i4_ + i3_ + i2_)
-            i6_ = i4_ + i3_ + i2_
-            i7_ = 5 / 2 * i4_ - 3 / 2 * i3_ - 1 / 2 * i3_
-            i8_ = 3 / 2 * i4_ + i3_ + i3_
-            i9_ = 2 * i4_ + 2 * i3_ + 2 * i3_
-            i10_ = 3 / 2 * i4_ + 1 / 2 * i3_ - 1 / 2 * i3_
-
-            if sector is ScanSector.broad:
-                plt.plot([x_a, x_m], [i4_, i4_], "k", linewidth=1)
-                plt.text(x_a, i4_ + 15, r"$(2\pi)^4$", fontsize=12, color="blue")
-                plt.plot([x_a, x_m], [i2_, i2_], "k", linewidth=1)
-                plt.text(x_a, i2_ + 15, r"$(2\pi)^2$", fontsize=12, color="blue")
-                plt.plot([x_a, x_m], [i5_, i5_], "k", linewidth=1)
-                plt.text(x_a, i5_ + 15, r"$1/2((2\pi)^4+(2\pi)^3+(2\pi)^2)$", fontsize=12, color="blue")
-                plt.plot([x_a, x_m], [i6_, i6_], "k", linewidth=1)
-                plt.text(x_a, i6_ + 15, r"$(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
-
-            if sector is ScanSector.heavy:
-                plt.plot([x_a, x_m], [i7_, i7_], "k", linewidth=1)
-                plt.text(x_a, i7_ + 15, r"$5/2(2\pi)^4-3/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
-                plt.plot([x_a, 2 * x_m], [i8_, i8_], "k", linewidth=1)
-                plt.text(x_a, i8_ + 15, r"$3/2(2\pi)^4+(2\pi)^3+(2\pi)^2=", fontsize=12, color="blue")
-                plt.plot([x_a, 3 * x_m], [i10_, i10_], "k", linewidth=1)
-                plt.text(x_a, i10_ + 15, r"$3/2(2\pi)^4+1/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
-            if is_broad or is_light:
-                plt.plot([x_a, x_m], [i3_, i3_], "k", linewidth=1)
-                plt.text(x_a, i3_ + 15, r"$(2\pi)^3$", fontsize=12, color="blue")
-            if is_light or is_broad or is_minimal:
-                plt.plot([x_a, x_m], [i2_, i2_], "k", linewidth=1)
-                plt.text(x_a, i2_ + 15, r"$(2\pi)^2$", fontsize=12, color="blue")
-
-        if is_broad:
+        # ---------------------- legend panels ----------------------
+        if sector is ScanSector.broad:
             x_a = i_T * 0.65
             dx = i_T * 0.08
             i = -20
-            for j in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 16, 17, 18, 19]:
-                particle = str(Obj[j][9])
-                plt.text(x_a, i, Obj[j][0])
-                plt.text(x_a + dx, i, particle, color=F[j])
-                plt.text(x_a + 2 * dx, i, i_Emax[j, 0])
-                plt.text(x_a + 3 * dx, i, D_i_c_[j])
+            for jj in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 16, 17, 18, 19]:
+                particle = str(Obj[jj][9])
+                plt.text(x_a, i, Obj[jj][0])
+                plt.text(x_a + dx, i, particle, color=F[jj])
+                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
                 i += 100
             plt.text(x_a + 2 * dx, i, "  ∆i  ")
             plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
 
-        if is_light:
-            x_m = i_T * 1 / 5
-            plt.xlim(-10000, i_T + 30000)
+        if sector is ScanSector.light:
             x_a = i_T * 0.70
             dx = i_T * 0.10
             i = 0
-            for j in [1, 2, 3, 4, 5, 6, 7]:
-                particle = str(Obj[j][9])
-                plt.text(x_a, i, Obj[j][0])
-                plt.text(x_a + dx, i, particle, color=F[j])
-                plt.text(x_a + 2 * dx, i, i_Emax[j, 0])
-                plt.text(x_a + 3 * dx, i, D_i_c_[j])
+            for jj in [1, 2, 3, 4, 5, 6, 7]:
+                particle = str(Obj[jj][9])
+                plt.text(x_a, i, Obj[jj][0])
+                plt.text(x_a + dx, i, particle, color=F[jj])
+                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
                 i += 20
             plt.text(x_a + 2 * dx, i, "  ∆i  ")
             plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
 
-        if is_minimal:
-            x_m = i_T * 1 / 5
-            plt.xlim(-1000, i_T + 10000)
+        if sector is ScanSector.minimal:
             x_a = i_T * 0.89
             dx = i_T * 0.10
             i = 0
-            for j in [1, 2, 3, 4, 5, 6, 7]:
-                particle = str(Obj[j][9])
-                plt.text(x_a, i, Obj[j][0])
-                plt.text(x_a + dx, i, particle, color=F[j])
-
-                D = D_i_c_[j]
-                plt.text(x_a + 2 * dx, i, i_Emax[j, 0])
-                plt.text(x_a + 3 * dx, i, D)
-
-                print(D_i_c_[j])
+            for jj in [1, 2, 3, 4, 5, 6, 7]:
+                particle = str(Obj[jj][9])
+                plt.text(x_a, i, Obj[jj][0])
+                plt.text(x_a + dx, i, particle, color=F[jj])
+                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
                 i += 5
             plt.text(x_a + 2 * dx, i, "  ∆i  ")
             plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
 
-        if is_nucleon:
-            x_m = i_T * 1 / 5
-            plt.xlim(0, i_T)
+        if sector is ScanSector.nucleon:
             fs = 14
             x_a = i_T * 0.70
             dx = i_T * 0.10
@@ -686,40 +648,40 @@ def main(argv=None):
             m_H = 1836.152673426 + 1
             plt.plot([1, i_T], [m_H, m_H], "k", linewidth=1)
             plt.text(1, 1837, "$m_{Proton} + m_e$", fontsize=fs, color="blue")
-            for j in [17, 19]:
-                plt.text(1050, float(Obj[j][2]), Obj[j][0], fontsize=fs, color=F[j])
-                particle = str(Obj[j][9])
-                plt.text(x_a, i, Obj[j][0])
-                plt.text(x_a + dx, i, particle, color=F[j])
-                plt.text(x_a + 2 * dx, i, i_Emax[j, 0])
-                plt.text(x_a + 3 * dx, i, D_i_c_[j])
+            for jj in [17, 19]:
+                plt.text(1050, float(Obj[jj][2]), Obj[jj][0], fontsize=fs, color=F[jj])
+                particle = str(Obj[jj][9])
+                plt.text(x_a, i, Obj[jj][0])
+                plt.text(x_a + dx, i, particle, color=F[jj])
+                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
                 i += 20
 
-        if is_heavy:
+        if sector is ScanSector.heavy:
             x_a = i_T * 0.65
             dx = i_T * 0.085
             i = 1500
-            for j in [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]:
-                particle = str(Obj[j][9])
-                if j == 26:
-                    particle = ""
-                plt.text(x_a, i, Obj[j][0])
-                plt.text(x_a + dx, i, particle, color=F[j])
-                plt.text(x_a + 2 * dx, i, i_Emax[j, 0])
-                plt.text(x_a + 3 * dx, i, D_i_c_[j])
+            for jj in [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]:
+                particle = str(Obj[jj][9])
+                plt.text(x_a, i, Obj[jj][0])
+                plt.text(x_a + dx, i, particle, color=F[jj])
+                plt.text(x_a + 2 * dx, i, i_Emax[jj, 0])
+                plt.text(x_a + 3 * dx, i, D_i_c_[jj])
                 i += 100
             plt.text(x_a + 2 * dx, i, "  ∆i  ")
             plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
 
+    # ---------------------- save/show ----------------------
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
-    
-    fig.savefig(os.path.join(RESULTS_DIR, f"{config.name}.png"), dpi=100)
-    
+    fig.savefig(png_path, dpi=100)
+
     end_time_stamp = datetime.datetime.now()
     delta = end_time_stamp - start_time_stamp
     print(f"took {delta.seconds} seconds")
-    
+    print(f"wrote: {txt_path}")
+    print(f"wrote: {png_path}")
+
     if not no_show:
         plt.show()
 
