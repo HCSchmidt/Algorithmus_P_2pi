@@ -53,8 +53,8 @@ class PolynomeConfig:
     @property
     def name(self) -> str:
         """Human-readable name used for output files."""
-        suffix = f" {self.add_info}" if self.add_info else ""
-        return f"Polynom{suffix} {self.J4}{self.J3}{self.J2}"
+        suffix = f"-{self.add_info}" if self.add_info else ""
+        return f"Polynom_{self.J4}{self.J3}{self.J2}"
 
 
 def Energie(i4, i3, i2, i1, i0, i_1, C):
