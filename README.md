@@ -2,9 +2,17 @@
 
 An algorithm was developed that describes the rest masses and standard deviations of all elementary particles, taking into account the symmetries for matter/antimatter, attraction/repulsion, and creation and annihilation. It is based on a polynomial P(2π) and three objects, each with three spatial coordinates and a shared time.
 
-## Examplary result (Option 5 – Tau)
+## Examplary results
 
-![Polynom 222 (including tau)](results/Polynom_222_Tau.png)
+### Polynom 011 (light section)
+![Polynom 011 (light section)](results/Polynom_111_nucleon.png)
+
+### Polynom 111 (nucleons section)
+![Polynom 111 (nucleons section)](results/Polynom_111_nucleon.png)
+
+### Polynom 111 (heavy section)
+
+![Polynom 111 (heavy section)](results/Polynom_222_heavy.png)
 
 More Info can be found here: https://www.physics-beyond-standard-model.com/
 
