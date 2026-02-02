@@ -318,8 +318,7 @@ def run_scan(
     *,
     engine: PolynomeEngine,
     config: PolynomeConfig,
-    is_heavy: bool,
-    is_nucleon: bool,
+    sector: ScanSector,
     obj_E,
     obj_min,
     obj_max,
@@ -340,6 +339,9 @@ def run_scan(
     """
     energie = engine.energie
     E_local = engine.E
+    
+    is_heavy = (sector is ScanSector.heavy)
+    is_nucleon = (sector is ScanSector.nucleon)
 
     i_T = 0
     i_T1 = 0
@@ -715,10 +717,6 @@ def main(argv=None):
     config = select_preset_by_sector(sector)
     no_show = args.no_show
 
-    # hoist sector checks (avoid Enum comparisons in the hot loop)
-    is_heavy = (sector is ScanSector.heavy)
-    is_nucleon = (sector is ScanSector.nucleon)
-
     engine = PolynomeEngine()
 
     # data
@@ -731,8 +729,7 @@ def main(argv=None):
     i_T, i_T1, _mmax = run_scan(
         engine=engine,
         config=config,
-        is_heavy=is_heavy,
-        is_nucleon=is_nucleon,
+        sector=sector,
         obj_E=obj_E,
         obj_min=obj_min,
         obj_max=obj_max,
