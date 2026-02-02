@@ -30,8 +30,11 @@ pi = cmath.pi
 TWO_PI = 2 * pi
 
 # Precompute powers of (2*pi) used in Energie(). Keep a generous range.
-TWO_PI_POW = {k: (TWO_PI ** k) for k in range(-30, 31)}
-
+POW_OFF = 40
+TWO_PI_POW = [0.0] * (2 * POW_OFF + 1)
+for k in range(-POW_OFF, POW_OFF + 1):
+    TWO_PI_POW[k + POW_OFF] = TWO_PI ** k
+    
 # Precompute the C-dependent energy constants (previously recomputed every call).
 E_C_POS = (
     -pi
@@ -66,51 +69,68 @@ class PolynomeConfig:
         return f"Polynom_{self.J4}{self.J3}{self.J2}{suffix}"
 
 
+
 def Energie(i4, i3, i2, i1, i0, i_1, C):
-    g[2][4] = i4
-    g[2][3] = i3
-    g[2][2] = i2
-    g[1][1] = i1
-    g[1][0] = i0
-    g[1][-1] = i_1
-    E[0] = 0
-    E[1] = 0
-    E[2] = 0
-    E[3] = 0
-    E[4] = 0
-    E[5] = 0
-    E[6] = 0
-    E[7] = 0
+    # local aliases (faster than repeated global indexing)
+    E_ = E
+    g2 = g[2]
+    g1 = g[1]
+    pow_ = TWO_PI_POW
+    off = POW_OFF
 
-    # C-dependent term (now precomputed constants)
-    E[0] = E_C_ZERO
+    # set inputs
+    g2[4] = i4
+    g2[3] = i3
+    g2[2] = i2
+    g1[1] = i1
+    g1[0] = i0
+    g1[-1] = i_1
+
+    # clear accumulators
+    E_[0] = E_[1] = E_[2] = E_[3] = E_[4] = E_[5] = E_[6] = E_[7] = 0.0
+
+    # C-dependent base term (same logic as original)
     if C > 0:
-        E[0] = C * E_C_POS
-    if C < 0:
-        E[0] = -C * E_C_NEG
+        E_[0] = C * E_C_POS
+    elif C < 0:
+        E_[0] = -C * E_C_NEG
+    else:
+        E_[0] = E_C_ZERO
 
-    for l in range(4, 1, -1):  # Gluonen r b g
-        E[2] += g[2][l] * TWO_PI_POW[l]
-    for n in range(1, -2, -1):  # e, u, d
-        E[1] -= g[1][n] * TWO_PI_POW[n]
+    # Gluons (l = 4..2)
+    for l in (4, 3, 2):
+        E_[2] += g2[l] * pow_[l + off]
 
-    for l in range(4, 1, -1):
-        for n in range(1, -2, -1):
-            if g[2][l] != 0 and g[1][n] != 0:
-                E[3] += (l + n < 4) * (g[2][l] > 0) * g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n - 1]
-                E[4] += (l + n < 4) * (g[2][l] < 0) * g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n]
-                E[5] -= (l + n > 3) * g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n - 1]
-                E[6] += abs(g[2][l] * g[1][n]) * 2 * TWO_PI_POW[-8]
-                g[2][l] = 0
-                g[1][n] = 0
+    # Fermions (n = 1..-1)
+    for n in (1, 0, -1):
+        E_[1] -= g1[n] * pow_[n + off]
+
+    # Cross terms + neutral antimatter baseline (exact original flow)
+    for l in (4, 3, 2):
+        for n in (1, 0, -1):
+            if g2[l] != 0 and g1[n] != 0:
+                ln = l + n
+
+                if ln < 4 and g2[l] > 0:
+                    E_[3] += g2[l] * g1[n] * 2.0 * pow_[-l - n - 1 + off]  # neutral, matter
+                if ln < 4 and g2[l] < 0:
+                    E_[4] += g2[l] * g1[n] * 2.0 * pow_[-l - n + off]      # neutral, antimatter
+                if ln > 3:
+                    E_[5] -= g2[l] * g1[n] * 2.0 * pow_[-l - n - 1 + off]  # neutral, gravitation
+
+                E_[6] += abs(g2[l] * g1[n]) * 2.0 * pow_[-8 + off]         # internal time
+
+                g2[l] = 0
+                g1[n] = 0
                 break
-            if g[2][l] == 0 and g[1][n] == 0:
-                E[7] -= TWO_PI_POW[-l - n - 1]
-                E[7] -= TWO_PI_POW[-l - n]
+
+            if g2[l] == 0 and g1[n] == 0:
+                E_[7] -= pow_[-l - n - 1 + off]  # neutral, antimatter
+                E_[7] -= pow_[-l - n + off]      # neutral, antimatter
                 break
 
-    E[0] += E[1] + E[2] + E[3] + E[4] + E[5] + E[6] + E[7]
-    return E[0]
+    E_[0] += E_[1] + E_[2] + E_[3] + E_[4] + E_[5] + E_[6] + E_[7]
+    return E_[0]
 
 
 def parse_args(argv=None):
