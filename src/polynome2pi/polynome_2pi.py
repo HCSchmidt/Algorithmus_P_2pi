@@ -332,10 +332,8 @@ def main(argv=None):
             lc = LineCollection(grey_segments, colors="#C0BCBC", linewidths=1)
             plt.gca().add_collection(lc)
 
-        print("..............   wait for Plot, several minutes   .................")
-        print("")
+        print("..............   plotting   .................")
         print("possible ET: ", i_T, "real ET: ", i_T1)
-        print("......with options 1 and 5, the process can take up to 60 minutes!.....")
         print(
             "{0:10}{1:5}{2:20}{3:16}{4:8}{5:5}{6:5}{7:5}{8:5}{9:5}{10:5}{11:5}".format(
                 "particle",
@@ -625,7 +623,7 @@ def main(argv=None):
     
     delta = end_time_stamp - start_time_stamp
     
-    print(f"{delta.seconds} seconds")
+    print(f"took {delta.seconds} seconds")
     if not no_show:
         plt.show()
 
