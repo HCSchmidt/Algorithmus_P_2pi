@@ -1,2 +1,2 @@
 def main():
-    from . import polynome_2pi
+    from . import main

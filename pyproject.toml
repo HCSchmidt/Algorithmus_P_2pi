@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-polynome2pi = "polynome2pi.polynome_2pi:main"
+polynome2pi = "polynome2pi.main:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
