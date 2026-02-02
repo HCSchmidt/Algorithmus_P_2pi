@@ -5,7 +5,7 @@ An algorithm was developed that describes the rest masses and standard deviation
 ## Examplary results
 
 ### Polynom 011 (light section)
-![Polynom 011 (light section)](results/Polynom_111_nucleon.png)
+![Polynom 011 (light section)](results/Polynom_011_light.png)
 
 ### Polynom 111 (nucleons section)
 ![Polynom 111 (nucleons section)](results/Polynom_111_nucleon.png)
