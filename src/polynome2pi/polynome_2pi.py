@@ -10,6 +10,7 @@ from matplotlib.collections import LineCollection
 import matplotlib.colors as mcolors
 import datetime
 
+
 pi = cmath.pi
 
 # ---- Precomputed constants for performance ----
@@ -33,7 +34,9 @@ E_C_NEG = 2 * pi - pi ** (-1) + E_C_POS
 E_C_ZERO = pi ** (-12) + 2 * pi ** (-14)
 
 E = [0] * 10
-g = [[0] * 10] * 10
+
+# FIX 1) avoid shared-list aliasing (each row independent)
+g = [[0] * 10 for _ in range(10)]
 
 
 @dataclass
@@ -91,9 +94,8 @@ def Energie(i4, i3, i2, i1, i0, i_1, C):
             if g[2][l] == 0 and g[1][n] == 0:
                 E[7] -= TWO_PI_POW[-l - n - 1]
                 E[7] -= TWO_PI_POW[-l - n]
-                # -1/(2pi) >   Neutrino     \nu_{\mu} = 1/pi                          >  decay
-                #              Antineutrino \nu_e = (2pi)**(-2(l+n)-1)/pi
                 break
+
     E[0] += E[1] + E[2] + E[3] + E[4] + E[5] + E[6] + E[7]
     return E[0]
 
@@ -111,7 +113,6 @@ def parse_args(argv=None):
 
 
 def select_preset(op: int):
-    add_info = ""
     if op == 1:  # slow (20 minutes)
         config = PolynomeConfig(J4=1, J3=1, J2=2)
     elif op == 2:  # fast, for u , d , s
@@ -129,8 +130,8 @@ def select_preset(op: int):
 
 
 def main(argv=None):
+
     start_time_stamp = datetime.datetime.now()
-    
     Op, no_show = parse_args(argv)
     config = select_preset(Op)
 
@@ -148,10 +149,13 @@ def main(argv=None):
 
         j = 0
         D_i_N = [0] * 300
-        Obj = [[0] * 13] * 35
+
+        # FIX 1) avoid shared-list aliasing for big matrices too
+        Obj = [[0] * 13 for _ in range(35)]
         N_E = [0] * 100000
-        N_T = [[0] * 100] * 100
+        N_T = [[0] * 100 for _ in range(100)]
         E_t = [0] * 100000
+
         X = [0] * 35
         D_i_c_ = [0] * 35
         Cnt = [0] * 520
@@ -238,9 +242,25 @@ def main(argv=None):
         # --- Plot batching for performance ---
         xs_by_j = {jj: [] for jj in range(1, 27)}
         ys_by_j = {jj: [] for jj in range(1, 27)}
-        grey_segments = []  # list of [(x0,y0),(x1,y1)] segments
+        grey_segments = []
 
-        for i5 in [0]:  # for speed v  c Mesonen and Celestial bodies
+        # FIX 2) local bindings for faster inner-loop access (locals are faster than globals)
+        E_local = E
+        Emax_local = Emax
+        Emin_local = Emin
+        i_Emax_local = i_Emax
+        i_Emin_local = i_Emin
+        Dmax_local = Dmax
+        Dmin_local = Dmin
+        obj_E_local = obj_E
+        obj_min_local = obj_min
+        obj_max_local = obj_max
+        xs_by_j_local = xs_by_j
+        ys_by_j_local = ys_by_j
+        grey_segments_local = grey_segments
+        Energie_func = Energie  # local bind function lookup too
+
+        for i5 in [0]:
             for i4 in range(-2 * config.J4, 2 * config.J4 + 1):
                 for i3 in range(-2 * config.J3, 2 * config.J3 + 1):
                     for i2 in range(-2 * config.J2, 2 * config.J2 + 1):
@@ -251,8 +271,11 @@ def main(argv=None):
                             for i0 in range(-6, 7):
                                 for i_1 in range(-6, 7):
                                     for C in range(-2, 3):
-                                        Energie(i4 / 2, i3 / 2, i2 / 2, i1 / 2, i0 / 2, i_1 / 2, C / 2)
-                                        if E[0] < 0:
+                                        Energie_func(i4 / 2, i3 / 2, i2 / 2, i1 / 2, i0 / 2, i_1 / 2, C / 2)
+
+                                        # FIX 3) read E0 once per combination
+                                        E0 = E_local[0]
+                                        if E0 < 0:
                                             continue
 
                                         m = int(256 + 32 * i4 + 4 * i3 + i2)
@@ -262,48 +285,46 @@ def main(argv=None):
                                         ct += 1
                                         Cnt[mmax] = ct
 
-                                        if Op == 5 and E[0] < 1500:
+                                        if Op == 5 and E0 < 1500:
                                             continue
-                                        if Op == 4 and (E[0] < 1836 or E[0] > 1839):
+                                        if Op == 4 and (E0 < 1836 or E0 > 1839):
                                             continue
 
                                         i_T += 1
                                         flag = 0
 
-                                        E0 = E[0]
                                         for j in range(1, 27):
-                                            Ej = obj_E[j]
-                                            if (E0 - Ej <= obj_max[j]) and (E0 - Ej >= obj_min[j]):
+                                            Ej = obj_E_local[j]
+                                            if (E0 - Ej <= obj_max_local[j]) and (E0 - Ej >= obj_min_local[j]):
                                                 i_T1 += 1
-                                                if Emax[j, m] <= E[0]:
-                                                    Emax[j, m] = E[0]
-                                                    i_Emax[j, m] = i_T
-                                                    Dmax[j, m, 0] = i4
-                                                    Dmax[j, m, 1] = i3
-                                                    Dmax[j, m, 2] = i2
-                                                    Dmax[j, m, 3] = i1
-                                                    Dmax[j, m, 4] = i0
-                                                    Dmax[j, m, 5] = i_1
-                                                    Dmax[j, m, 6] = C
-                                                if Emin[j, m] >= E[0] or Emin[j, m] == 0:
-                                                    Emin[j, m] = E[0]
-                                                    i_Emin[j, m] = i_T
-                                                    Dmin[j, m, 0] = i4
-                                                    Dmin[j, m, 1] = i3
-                                                    Dmin[j, m, 2] = i2
-                                                    Dmin[j, m, 3] = i1
-                                                    Dmin[j, m, 4] = i0
-                                                    Dmin[j, m, 5] = i_1
-                                                    Dmin[j, m, 6] = C
+                                                if Emax_local[j, m] <= E0:
+                                                    Emax_local[j, m] = E0
+                                                    i_Emax_local[j, m] = i_T
+                                                    Dmax_local[j, m, 0] = i4
+                                                    Dmax_local[j, m, 1] = i3
+                                                    Dmax_local[j, m, 2] = i2
+                                                    Dmax_local[j, m, 3] = i1
+                                                    Dmax_local[j, m, 4] = i0
+                                                    Dmax_local[j, m, 5] = i_1
+                                                    Dmax_local[j, m, 6] = C
+                                                if Emin_local[j, m] >= E0 or Emin_local[j, m] == 0:
+                                                    Emin_local[j, m] = E0
+                                                    i_Emin_local[j, m] = i_T
+                                                    Dmin_local[j, m, 0] = i4
+                                                    Dmin_local[j, m, 1] = i3
+                                                    Dmin_local[j, m, 2] = i2
+                                                    Dmin_local[j, m, 3] = i1
+                                                    Dmin_local[j, m, 4] = i0
+                                                    Dmin_local[j, m, 5] = i_1
+                                                    Dmin_local[j, m, 6] = C
 
-                                                xs_by_j[j].append(i_T)
-                                                ys_by_j[j].append(E[0])
+                                                xs_by_j_local[j].append(i_T)
+                                                ys_by_j_local[j].append(E0)
                                                 flag = 1
 
-                                        if E[0] > 0 and flag == 0:
-                                            grey_segments.append([(i_T, E[0]), (i_T + 1, E[0])])
+                                        if E0 > 0 and flag == 0:
+                                            grey_segments_local.append([(i_T, E0), (i_T + 1, E0)])
 
-        # --- Draw all collected points/segments in one go (fast) ---
         for j in range(1, 27):
             if xs_by_j[j]:
                 plt.scatter(xs_by_j[j], ys_by_j[j], s=80, c=F[j], marker=".", linewidths=0)
@@ -354,6 +375,7 @@ def main(argv=None):
                 Cnt_ = Cnt[m]
                 D_i_c = round((abs(Di_E)) * 100 / Cnt_, 5)
                 i_Emax[j, 516] += Cnt_
+                # NOTE: left as-is (this is outside the hot scan loop)
                 D_i_N[j] = float(i_Emax[j, 0]) * 100 / Cnt[m]
                 Emax[j, m] = float(str(Emax[j, m])[:p_g])
                 Emin[j, m] = float(str(Emin[j, m])[:p_g])
@@ -510,7 +532,7 @@ def main(argv=None):
                 plt.plot([x_a, x_m], [i6_, i6_], "k", linewidth=1)
                 plt.text(x_a, i6_ + 15, r"$(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
 
-        # (Legend blocks unchanged)
+        # Legend blocks unchanged (same as before)
         if Op == 1:
             x_a = i_T * 0.65
             dx = i_T * 0.08
@@ -599,7 +621,6 @@ def main(argv=None):
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
     fig.savefig(f"{config.name}.png", dpi=100)
-    
     end_time_stamp = datetime.datetime.now()
     
     delta = end_time_stamp - start_time_stamp
@@ -610,8 +631,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    a = datetime.datetime.now()
-
     main()
-    
-
