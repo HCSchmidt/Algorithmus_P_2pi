@@ -12,8 +12,27 @@ import matplotlib.colors as mcolors
 
 pi = cmath.pi
 
-E = [0] * 10
+# ---- Precomputed constants for performance ----
+TWO_PI = 2 * pi
 
+# Precompute powers of (2*pi) used in Energie(). Keep a generous range.
+TWO_PI_POW = {k: (TWO_PI ** k) for k in range(-30, 31)}
+
+# Precompute the C-dependent energy constants (previously recomputed every call).
+E_C_POS = (
+    -pi
+    + 2 * pi ** (-1)
+    - pi ** (-3)
+    + 2 * pi ** (-5)
+    - pi ** (-7)
+    + pi ** (-9)
+    - pi ** (-12)
+    - 2 * pi ** (-14)
+)
+E_C_NEG = 2 * pi - pi ** (-1) + E_C_POS
+E_C_ZERO = pi ** (-12) + 2 * pi ** (-14)
+
+E = [0] * 10
 g = [[0] * 10] * 10
 
 
@@ -47,45 +66,31 @@ def Energie(i4, i3, i2, i1, i0, i_1, C):
     E[6] = 0
     E[7] = 0
 
-    E_C_pos = (
-        -pi
-        + 2 * pi ** (-1)
-        - pi ** (-3)
-        + 2 * pi ** (-5)
-        - pi ** (-7)
-        + pi ** (-9)
-        - pi ** (-12)
-        - 2 * pi ** (-14)
-    )
-    E_C_neg = 2 * pi - pi ** (-1) + E_C_pos
-    E[0] = pi ** (-12) + 2 * pi ** (-14)
+    # C-dependent term (now precomputed constants)
+    E[0] = E_C_ZERO
     if C > 0:
-        E[0] = C * E_C_pos
+        E[0] = C * E_C_POS
     if C < 0:
-        E[0] = -C * E_C_neg
+        E[0] = -C * E_C_NEG
 
     for l in range(4, 1, -1):  # Gluonen r b g
-        E[2] += g[2][l] * (2 * pi) ** l
+        E[2] += g[2][l] * TWO_PI_POW[l]
     for n in range(1, -2, -1):  # e, u, d
-        E[1] -= g[1][n] * (2 * pi) ** n
+        E[1] -= g[1][n] * TWO_PI_POW[n]
 
     for l in range(4, 1, -1):
         for n in range(1, -2, -1):
             if g[2][l] != 0 and g[1][n] != 0:
-                E[3] += (l + n < 4) * (g[2][l] > 0) * g[2][l] * g[1][n] * 2 * (2 * pi) ** (
-                    -l - n - 1
-                )  # neutral, matter
-                E[4] += (l + n < 4) * (g[2][l] < 0) * g[2][l] * g[1][n] * 2 * (2 * pi) ** (
-                    -l - n
-                )  # neutral, antimatter
-                E[5] -= (l + n > 3) * g[2][l] * g[1][n] * 2 * (2 * pi) ** (-l - n - 1)  # neutral, Gravitation
-                E[6] += abs(g[2][l] * g[1][n]) * 2 * (2 * pi) ** (-8)  # internal time
+                E[3] += (l + n < 4) * (g[2][l] > 0) * g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n - 1]
+                E[4] += (l + n < 4) * (g[2][l] < 0) * g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n]
+                E[5] -= (l + n > 3) * g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n - 1]
+                E[6] += abs(g[2][l] * g[1][n]) * 2 * TWO_PI_POW[-8]
                 g[2][l] = 0
                 g[1][n] = 0
                 break
             if g[2][l] == 0 and g[1][n] == 0:
-                E[7] -= (2 * pi) ** (-l - n - 1)  # neutral, antimatter
-                E[7] -= (2 * pi) ** (-l - n)  # neutral, antimatter
+                E[7] -= TWO_PI_POW[-l - n - 1]
+                E[7] -= TWO_PI_POW[-l - n]
                 # -1/(2pi) >   Neutrino     \nu_{\mu} = 1/pi                          >  decay
                 #              Antineutrino \nu_e = (2pi)**(-2(l+n)-1)/pi
                 break
@@ -126,6 +131,8 @@ def select_preset(op: int):
 def main(argv=None):
     Op, no_show = parse_args(argv)
     config = select_preset(Op)
+
+    DEBUG = False
 
     with open(f"{config.name}.txt", "w", encoding="utf8") as f:
         i_T = 0
@@ -186,6 +193,15 @@ def main(argv=None):
             ["t", "337710(570)", "337710", "-570", "570", " ", "+2/3", "", "", "t"],
         ]
 
+        # Precompute numeric values for fast matching (avoid float() in the inner loop)
+        obj_E = [0.0] * 27
+        obj_min = [0.0] * 27
+        obj_max = [0.0] * 27
+        for jj in range(1, 27):
+            obj_E[jj] = float(Obj[jj][2])
+            obj_min[jj] = float(Obj[jj][3])
+            obj_max[jj] = float(Obj[jj][4])
+
         F = [
             "#FFFFFF",
             "#000000",
@@ -218,7 +234,6 @@ def main(argv=None):
         ]
 
         # --- Plot batching for performance ---
-        # Matplotlib is slow when called millions of times. We collect points/segments and draw once.
         xs_by_j = {jj: [] for jj in range(1, 27)}
         ys_by_j = {jj: [] for jj in range(1, 27)}
         grey_segments = []  # list of [(x0,y0),(x1,y1)] segments
@@ -227,7 +242,9 @@ def main(argv=None):
             for i4 in range(-2 * config.J4, 2 * config.J4 + 1):
                 for i3 in range(-2 * config.J3, 2 * config.J3 + 1):
                     for i2 in range(-2 * config.J2, 2 * config.J2 + 1):
-                        print("i4", i4, "i3", i3, "i2", i2, "i1", i1, "i_T1", i_T1)
+                        if DEBUG:
+                            print("i4", i4, "i3", i3, "i2", i2, "i1", i1, "i_T1", i_T1)
+
                         for i1 in range(-6, 7):
                             for i0 in range(-6, 7):
                                 for i_1 in range(-6, 7):
@@ -235,24 +252,26 @@ def main(argv=None):
                                         Energie(i4 / 2, i3 / 2, i2 / 2, i1 / 2, i0 / 2, i_1 / 2, C / 2)
                                         if E[0] < 0:
                                             continue
-                                        m = int(256 + 32 * i4 + 4 * i3 + i2)  # Counts in 2 pi with positive energy
+
+                                        m = int(256 + 32 * i4 + 4 * i3 + i2)
                                         if m > mmax:
                                             mmax = m
                                             ct = 0
                                         ct += 1
                                         Cnt[mmax] = ct
+
                                         if Op == 5 and E[0] < 1500:
                                             continue
                                         if Op == 4 and (E[0] < 1836 or E[0] > 1839):
                                             continue
+
                                         i_T += 1
                                         flag = 0
+
+                                        E0 = E[0]
                                         for j in range(1, 27):
-                                            min_ = float(Obj[j][3])
-                                            max_ = float(Obj[j][4])
-                                            if (E[0] - float(Obj[j][2]) <= 1.0 * max_) and (
-                                                E[0] - float(Obj[j][2]) >= 1.0 * min_
-                                            ):
+                                            Ej = obj_E[j]
+                                            if (E0 - Ej <= obj_max[j]) and (E0 - Ej >= obj_min[j]):
                                                 i_T1 += 1
                                                 if Emax[j, m] <= E[0]:
                                                     Emax[j, m] = E[0]
@@ -275,7 +294,6 @@ def main(argv=None):
                                                     Dmin[j, m, 5] = i_1
                                                     Dmin[j, m, 6] = C
 
-                                                # batched plot (fast)
                                                 xs_by_j[j].append(i_T)
                                                 ys_by_j[j].append(E[0])
                                                 flag = 1
@@ -454,15 +472,17 @@ def main(argv=None):
             plt.ylabel("Energy in $m_e$")
             plt.xlabel("N")
             plt.xlim(-10000, i_T + 30000)
-            i2_ = float(2 * pi) ** 2
-            i3_ = float(2 * pi) ** 3
-            i4_ = float(2 * pi) ** 4
+
+            i2_ = float(TWO_PI) ** 2
+            i3_ = float(TWO_PI) ** 3
+            i4_ = float(TWO_PI) ** 4
             i5_ = 1 / 2 * (i4_ + i3_ + i2_)
             i6_ = i4_ + i3_ + i2_
             i7_ = 5 / 2 * i4_ - 3 / 2 * i3_ - 1 / 2 * i3_
             i8_ = 3 / 2 * i4_ + i3_ + i3_
             i9_ = 2 * i4_ + 2 * i3_ + 2 * i3_
             i10_ = 3 / 2 * i4_ + 1 / 2 * i3_ - 1 / 2 * i3_
+
             if Op in [1]:
                 plt.plot([x_a, x_m], [i4_, i4_], "k", linewidth=1)
                 plt.text(x_a, i4_ + 15, r"$(2\pi)^4$", fontsize=12, color="blue")
@@ -488,6 +508,7 @@ def main(argv=None):
                 plt.plot([x_a, x_m], [i6_, i6_], "k", linewidth=1)
                 plt.text(x_a, i6_ + 15, r"$(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
 
+        # (Legend blocks unchanged)
         if Op == 1:
             x_a = i_T * 0.65
             dx = i_T * 0.08
