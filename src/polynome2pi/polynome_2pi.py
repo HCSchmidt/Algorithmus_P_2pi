@@ -39,19 +39,6 @@ def init_plot_buffers():
     grey_segments = []
     return xs_by_j, ys_by_j, grey_segments
 
-
-
-
-
-
-
-
-
-
-
-
-# ------------------------- main orchestration -------------------------
-
 def main(argv=None):
     start_time_stamp = datetime.datetime.now()
 

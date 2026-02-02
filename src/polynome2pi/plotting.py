@@ -148,3 +148,41 @@ def add_legend_panels(sector: ScanSector, i_T: int, Obj, i_Emax, D_i_c_):
             i += 100
         plt.text(x_a + 2 * dx, i, "  ∆i  ")
         plt.text(x_a + 3 * dx, i, " ∆i/(2pi) ")
+        
+        
+def label_offsets_for_sector(sector: ScanSector, j: int):
+    """Return (X, Y, fs) where X is a whole list so we can use X[j]."""
+    if sector is ScanSector.broad:
+        X = [0, 4, 7, 9, 6, 9, 5, 13, -21, -12, 5, -19, 6, -28, -17, -21, -13, -20, -12, -10, -37, -9, -5.5, -22, -11, 0, 0, 0]
+        return X, -20, 12
+
+    if sector is ScanSector.light:
+        X = [0, 1.2, 2.5, 3, 1, 1, 0.7, 1]
+        return X, -4, 16
+
+    if sector is ScanSector.minimal:
+        X = [0, 0.2, 0.2, 0.2]
+        return X, -1, 16
+
+    if sector is ScanSector.nucleon:
+        X = [0, 2, 4, 5, 3, 4, 4, 8, -13, -7, 2, -11, 2, -14, -7, -11, -7, -12, -8, -3, -0, -0, -0, -22, -11, 0, 0, 0]
+        return X, -0, 16
+
+    if sector is ScanSector.heavy:
+        X = [0, 5, 10, 15, 20, 5, 9, 30, -35, -20, 7, -40, 25, 15, 4, 35, 20, -13, -10, -7, 20, 20, 10, -10, -10, -20, 0, 0, 0]
+        X[j] *= 2
+        return X, -50, 12
+
+    raise ValueError(f"Unhandled sector: {sector}")
+
+
+def add_particle_label(*, sector: ScanSector, j: int, x_base: float, y: float, text: str, color: str):
+    """Add the per-particle label text at the same position logic as before."""
+    X, Y, fs = label_offsets_for_sector(sector, j)
+    plt.text(
+        x_base + 10000 * X[j],
+        y + Y,
+        text,
+        fontsize=fs,
+        color=color,
+    )
