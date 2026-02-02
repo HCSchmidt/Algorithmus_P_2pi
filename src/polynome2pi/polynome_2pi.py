@@ -51,6 +51,34 @@ E_C_ZERO = pi ** (-12) + 2 * pi ** (-14)
 
 E = [0] * 10
 
+# l in {4,3,2}
+POW_L_4 = TWO_PI_POW[4 + POW_OFF]
+POW_L_3 = TWO_PI_POW[3 + POW_OFF]
+POW_L_2 = TWO_PI_POW[2 + POW_OFF]
+
+# n in {1,0,-1}
+POW_N_1  = TWO_PI_POW[ 1 + POW_OFF]
+POW_N_0  = TWO_PI_POW[ 0 + POW_OFF]
+POW_N_M1 = TWO_PI_POW[-1 + POW_OFF]
+
+# 2*(2π)^(-8) constant used in E6
+POW_NEG8_2 = 2.0 * TWO_PI_POW[-8 + POW_OFF]
+
+# Precompute the 9 combos for -l-n-1 and -l-n (for l∈{4,3,2}, n∈{1,0,-1})
+_LS = (4, 3, 2)
+_NS = (1, 0, -1)
+
+POW_LN_M1 = [[0.0]*3 for _ in range(3)]       # includes factor 2
+POW_LN_0  = [[0.0]*3 for _ in range(3)]       # includes factor 2
+POW_LN_M1_ONLY = [[0.0]*3 for _ in range(3)]  # no factor 2 (for E7)
+POW_LN_0_ONLY  = [[0.0]*3 for _ in range(3)]  # no factor 2 (for E7)
+
+for li, l in enumerate(_LS):
+    for ni, n in enumerate(_NS):
+        POW_LN_M1[li][ni] = 2.0 * TWO_PI_POW[-l - n - 1 + POW_OFF]
+        POW_LN_0[li][ni]  = 2.0 * TWO_PI_POW[-l - n + POW_OFF]
+        POW_LN_M1_ONLY[li][ni] = TWO_PI_POW[-l - n - 1 + POW_OFF]
+        POW_LN_0_ONLY[li][ni]  = TWO_PI_POW[-l - n + POW_OFF]
 # FIX 1) avoid shared-list aliasing (each row independent)
 g = [[0] * 10 for _ in range(10)]
 
@@ -71,12 +99,9 @@ class PolynomeConfig:
 
 
 def Energie(i4, i3, i2, i1, i0, i_1, C):
-    # local aliases (faster than repeated global indexing)
-    E_ = E
+    # local aliases
     g2 = g[2]
     g1 = g[1]
-    pow_ = TWO_PI_POW
-    off = POW_OFF
 
     # set inputs
     g2[4] = i4
@@ -86,51 +111,66 @@ def Energie(i4, i3, i2, i1, i0, i_1, C):
     g1[0] = i0
     g1[-1] = i_1
 
-    # clear accumulators
-    E_[0] = E_[1] = E_[2] = E_[3] = E_[4] = E_[5] = E_[6] = E_[7] = 0.0
-
-    # C-dependent base term (same logic as original)
+    # local accumulators (avoid writing into E[] repeatedly)
     if C > 0:
-        E_[0] = C * E_C_POS
+        E0 = C * E_C_POS
     elif C < 0:
-        E_[0] = -C * E_C_NEG
+        E0 = -C * E_C_NEG
     else:
-        E_[0] = E_C_ZERO
+        E0 = E_C_ZERO
 
-    # Gluons (l = 4..2)
-    for l in (4, 3, 2):
-        E_[2] += g2[l] * pow_[l + off]
+    E1 = -(g1[1] * POW_N_1 + g1[0] * POW_N_0 + g1[-1] * POW_N_M1)
+    E2 =  (g2[4] * POW_L_4 + g2[3] * POW_L_3 + g2[2] * POW_L_2)
 
-    # Fermions (n = 1..-1)
-    for n in (1, 0, -1):
-        E_[1] -= g1[n] * pow_[n + off]
+    E3 = 0.0
+    E4 = 0.0
+    E5 = 0.0
+    E6 = 0.0
+    E7 = 0.0
 
-    # Cross terms + neutral antimatter baseline (exact original flow)
-    for l in (4, 3, 2):
-        for n in (1, 0, -1):
-            if g2[l] != 0 and g1[n] != 0:
+    # Exact original nested-loop and break semantics, but using precomputed pow tables
+    for li, l in enumerate((4, 3, 2)):
+        for ni, n in enumerate((1, 0, -1)):
+            gl = g2[l]
+            gn = g1[n]
+
+            if gl != 0 and gn != 0:
                 ln = l + n
 
-                if ln < 4 and g2[l] > 0:
-                    E_[3] += g2[l] * g1[n] * 2.0 * pow_[-l - n - 1 + off]  # neutral, matter
-                if ln < 4 and g2[l] < 0:
-                    E_[4] += g2[l] * g1[n] * 2.0 * pow_[-l - n + off]      # neutral, antimatter
-                if ln > 3:
-                    E_[5] -= g2[l] * g1[n] * 2.0 * pow_[-l - n - 1 + off]  # neutral, gravitation
+                if ln < 4:
+                    if gl > 0:
+                        E3 += gl * gn * POW_LN_M1[li][ni]
+                    else:
+                        E4 += gl * gn * POW_LN_0[li][ni]
 
-                E_[6] += abs(g2[l] * g1[n]) * 2.0 * pow_[-8 + off]         # internal time
+                if ln > 3:
+                    E5 -= gl * gn * POW_LN_M1[li][ni]
+
+                E6 += (gl * gn if gl * gn >= 0 else -(gl * gn)) * POW_NEG8_2
+                # equivalent to abs(gl*gn) * 2*(2π)^(-8), but avoids abs() call
 
                 g2[l] = 0
                 g1[n] = 0
                 break
 
-            if g2[l] == 0 and g1[n] == 0:
-                E_[7] -= pow_[-l - n - 1 + off]  # neutral, antimatter
-                E_[7] -= pow_[-l - n + off]      # neutral, antimatter
+            if gl == 0 and gn == 0:
+                E7 -= POW_LN_M1_ONLY[li][ni]
+                E7 -= POW_LN_0_ONLY[li][ni]
                 break
 
-    E_[0] += E_[1] + E_[2] + E_[3] + E_[4] + E_[5] + E_[6] + E_[7]
-    return E_[0]
+    total = E0 + E1 + E2 + E3 + E4 + E5 + E6 + E7
+
+    # Keep the global E[] updated exactly like before (if other code relies on it)
+    E[0] = total
+    E[1] = E1
+    E[2] = E2
+    E[3] = E3
+    E[4] = E4
+    E[5] = E5
+    E[6] = E6
+    E[7] = E7
+
+    return total
 
 
 def parse_args(argv=None):
