@@ -11,8 +11,8 @@ from matplotlib.collections import LineCollection
 from .cli import ScanSector, PolynomeConfig, select_preset_by_sector, parse_args
 from .engine import run_scan
 from .constants import build_particle_table
-from .plotting import add_reference_lines, draw_points, add_legend_panels
-from .report import write_report_and_labels
+from .plotting import add_reference_lines, draw_points, add_legend_panels, add_particle_labels
+from .report import write_report
 from .initialize import init_result_arrays, init_plot_buffers
 
 RESULTS_DIR = Path("results")
@@ -55,7 +55,7 @@ def main(argv=None):
 
     # report + particle labels
     print("possible ET:", i_T, "real ET:", i_T1)
-    write_report_and_labels(
+    labels = write_report(
         file_path = RESULTS_DIR / f"{config.name}.txt",
         sector=sector,
         Obj=Obj,
@@ -73,6 +73,7 @@ def main(argv=None):
     # reference lines and legend panels
     add_reference_lines(sector, i_T)
     add_legend_panels(sector, i_T, Obj, i_Emax, D_i_c_)
+    add_particle_labels(labels)
 
     # save/show
     fig = plt.gcf()

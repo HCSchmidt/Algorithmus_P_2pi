@@ -1,9 +1,8 @@
 from .cli import ScanSector
 from .constants import get_colors
-from .plotting import add_particle_label
 
 
-def write_report_and_labels(
+def write_report(
     file_path,
     sector: ScanSector,
     Obj,
@@ -18,6 +17,8 @@ def write_report_and_labels(
     Dmin,
 ):
     colors = get_colors()
+    
+    labels = []
 
     with open(file_path, "w", encoding="utf8") as f:
         print("..............   plotting   .................")
@@ -126,14 +127,7 @@ def write_report_and_labels(
 
                 # Restore labels in the plot
                 if flag == 1:
-                    add_particle_label(
-                        sector=sector,
-                        j=j,
-                        x_base=i_Emin[j, m],
-                        y=E_mean,
-                        text=Obj[j][9],
-                        color=colors[j],
-                    )
+                    labels.append((sector, j, i_Emin[j, m], E_mean, Obj[j][9], colors[j]))
                     flag = 2
 
             if j > 1 and m == 511 and i_Emax[j, 516] > 0:
@@ -163,3 +157,4 @@ def write_report_and_labels(
                     ),
                     file=f,
                 )
+    return labels

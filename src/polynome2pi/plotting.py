@@ -175,14 +175,23 @@ def label_offsets_for_sector(sector: ScanSector, j: int):
 
     raise ValueError(f"Unhandled sector: {sector}")
 
+def add_particle_labels(labels):
+    """Draw all particle labels returned by report.write_report().
 
-def add_particle_label(*, sector: ScanSector, j: int, x_base: float, y: float, text: str, color: str):
-    """Add the per-particle label text at the same position logic as before."""
-    X, Y, fs = label_offsets_for_sector(sector, j)
-    plt.text(
-        x_base + 10000 * X[j],
-        y + Y,
-        text,
-        fontsize=fs,
-        color=color,
-    )
+    Expected `labels` format: iterable of dicts with keys:
+      - sector, j, x_base, y, text, color
+    """
+    if not labels:
+        return
+
+    for item in labels:
+        sector, j, x_base, y, text, color = item[:6]
+        X, Y, fs = label_offsets_for_sector(sector, j)
+        plt.text(
+            x_base + 10000 * X[j],
+            y + Y,
+            text,
+            fontsize=fs,
+            color=color,
+        )
+        
