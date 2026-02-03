@@ -33,9 +33,9 @@ def add_reference_lines(sector: ScanSector, i_T: int):
     i4_ = TWO_PI ** 4
     i5_ = 0.5 * (i4_ + i3_ + i2_)
     i6_ = i4_ + i3_ + i2_
-    i7_ = 2.5 * i4_ - 1.5 * i3_ - 0.5 * i2_
-    i8_ = 1.5 * i4_ + i3_ + i2_
-    i10_ = 1.5 * i4_ + 0.5 * i3_ - 0.5 * i2_
+    i7_= 2.5* i4_ - 1.5 * i3_ - 0.5 * i2_;
+    i9_ = 2 * i4_ + 2 * i3_ + 1.5 * i2_;
+    i10_ = 1.5 * i4_ + 0.5 * i3_ + 0.5 * i2_;
 
     if sector is ScanSector.broad:
         plt.plot([x_a, x_m], [i4_, i4_], "k", linewidth=1)
@@ -50,13 +50,14 @@ def add_reference_lines(sector: ScanSector, i_T: int):
         plt.text(x_a, i6_ + 15, r"$(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
 
     if sector is ScanSector.heavy:
-        plt.plot([x_a, x_m], [i7_, i7_], "k", linewidth=1)
-        plt.text(x_a, i7_ + 15, r"$5/2(2\pi)^4-3/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
-        plt.plot([x_a, 2 * x_m], [i8_, i8_], "k", linewidth=1)
-        plt.text(x_a, i8_ + 15, r"$3/2(2\pi)^4+(2\pi)^3+(2\pi)^2$", fontsize=12, color="blue")
-        plt.plot([x_a, 3 * x_m], [i10_, i10_], "k", linewidth=1)
-        plt.text(x_a, i10_ + 15, r"$3/2(2\pi)^4+1/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color="blue")
+        plt.plot([x_a, 5 * x_m], [i7_, i7_], "k", linewidth=1); 
+        plt.text(x_a, i7_+ 15, r"$5/2(2\pi)^4-3/2(2\pi)^3-1/2(2\pi)^2$", fontsize=12, color='blue')
+        plt.plot([x_a, 4 * x_m], [i9_, i9_], "k",l inewidth=1); 
+        plt.text(x_a, i9_ + 15, r"$2(2\pi)^4+2(2\pi)^3+3/2(2\pi)^2$", fontsize=12, color='blue')
+        plt.plot([x_a, 3 * x_m], [i10_, i10_], "k", linewidth=1); 
+        plt.text(x_a, i10_ + 15, r"$3/2(2\pi)^4+1/2(2\pi)^3+1/2(2\pi)^2$", fontsize=12, color='blue')
 
+    
     if sector in (ScanSector.broad, ScanSector.light):
         plt.plot([x_a, x_m], [i3_, i3_], "k", linewidth=1)
         plt.text(x_a, i3_ + 15, r"$(2\pi)^3$", fontsize=12, color="blue")
