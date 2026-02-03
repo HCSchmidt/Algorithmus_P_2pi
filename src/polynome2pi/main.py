@@ -11,12 +11,12 @@ from matplotlib.collections import LineCollection
 from .cli import ScanSector, PolynomeConfig, select_preset_by_sector, parse_args
 from .engine import run_scan
 from .constants import build_particle_table
-from .plotting import add_reference_lines, draw_points, add_legend_panels, add_particle_labels
-from .report import write_report
+from .output.plotting import add_reference_lines, draw_points, add_legend_panels, add_particle_labels
+from .output.report import write_report
+from .output.config import RESULTS_DIR
 from .initialize import init_result_arrays, init_plot_buffers
 
-RESULTS_DIR = Path("results")
-RESULTS_DIR.mkdir(exist_ok=True)
+Path(RESULTS_DIR).mkdir(exist_ok=True)
 
 def main(argv=None):
     start_time_stamp = datetime.datetime.now()
@@ -56,7 +56,7 @@ def main(argv=None):
     # report + particle labels
     print("possible ET:", i_T, "real ET:", i_T1)
     labels = write_report(
-        file_path = RESULTS_DIR / f"{config.name}.csv",
+        config.name,
         sector=sector,
         Obj=Obj,
         D_i_N=D_i_N,
@@ -78,7 +78,7 @@ def main(argv=None):
     # save/show
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
-    fig.savefig(RESULTS_DIR / f"{config.name}.png", dpi=100)
+    fig.savefig(os.path.join(RESULTS_DIR, f"{config.name}.png"), dpi=100)
 
     end_time_stamp = datetime.datetime.now()
     delta = end_time_stamp - start_time_stamp
