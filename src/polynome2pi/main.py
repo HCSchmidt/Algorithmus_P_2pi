@@ -56,7 +56,7 @@ def main(argv=None):
     # report + particle labels
     print("possible ET:", i_T, "real ET:", i_T1)
     labels = write_report(
-        file_path = RESULTS_DIR / f"{config.name}.txt",
+        file_path = RESULTS_DIR / f"{config.name}.csv",
         sector=sector,
         Obj=Obj,
         D_i_N=D_i_N,
