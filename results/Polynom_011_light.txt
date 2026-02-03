@@ -56,24 +56,4 @@ Pion +-
           min              273.13208       273.13249  136669  0.0  1.0  1.0  3.0 -3.0  1.5 -0.5
                                             ∆ abs(i)     832  Cts   10985  ∆i/(2pi)   7.57396 %
           total                                 Σ ∆i     832  Cts   10985  ∆i/(2pi)   7.57396 %
-K +-      mean  966.102(21)                          only with i4 > 1
-KL 0      mean  973.800(26)                          only with i4 > 1
-KS 0      mean  973.800(26)                          only with i4 > 1
-Eta       mean  1072.139(35)                         only with i4 > 1
-Rho +-    mean  1506(1)                              only with i4 > 1
-Rho 0     mean  1517.14(49)                          only with i4 > 1
-Omega     mean  1531.62(25)                          only with i4 > 1
-K* +-     mean  1745.2(1)                            only with i4 > 1
-K* 0      mean  1752.6(1)                            only with i4 > 1
-Proton    mean  1836.152673426(32)                   only with i4 > 1
-H         mean  1837.47(-0.29)(0.20)                 only with i4 > 1
-Neutron   mean  1838.68366200(74)                    only with i4 > 1
-Eta`      mean  1874.32(11)                          only with i4 > 1
-Phi       mean  1995.035(31)                         only with i4 > 1
-c         mean  2485(-39)(39)                        only with i4 > 1
-Tau       mean  3477.23(23)                          only with i4 > 1
-D 0       mean  3649.38(10)                          only with i4 > 1
-D +       mean  3658.81(10)                          only with i4 > 1
-Deuteron  mean  3670.4829677(11)                     only with i4 > 1
-DS +      mean  3851.94(13)                          only with i4 > 1
-Higgs     mean  244830(210)                          only with i4 > 1
+
