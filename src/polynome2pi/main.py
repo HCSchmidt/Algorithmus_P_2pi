@@ -15,6 +15,7 @@ from .output.plotting import add_reference_lines, draw_points, add_legend_panels
 from .output.report import write_report
 from .output.config import RESULTS_DIR
 from .initialize import init_result_arrays, init_plot_buffers
+from .utils import open_image
 
 Path(RESULTS_DIR).mkdir(exist_ok=True)
 
@@ -76,17 +77,17 @@ def main(argv=None):
     add_particle_labels(labels)
 
     # save/show
+    output_png = os.path.join(RESULTS_DIR, f"{config.name}.png")
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
-    fig.savefig(os.path.join(RESULTS_DIR, f"{config.name}.png"), dpi=100)
+    fig.savefig(output_png, dpi=100)
 
     end_time_stamp = datetime.datetime.now()
     delta = end_time_stamp - start_time_stamp
     print(f"took {delta.seconds} seconds")
 
     if not no_show:
-        plt.show()
-
+        open_image(output_png)
 
 if __name__ == "__main__":
     main()
