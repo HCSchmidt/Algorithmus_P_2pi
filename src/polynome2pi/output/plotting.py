@@ -160,13 +160,23 @@ def _legend_nucleon(i_T, particles, colors, i_Emax, D_i_c_):
 def add_particle_labels(labels):
     """
     labels: iterable of tuples:
-        (sector, particle, x_base, y, color)
+        (sector, particle, x_base, y)
     """
     if not labels:
         return
 
-    for sector, particle, x_base, y, color in labels:
+    colors = get_colors()
+
+    # stable mapping from particle key -> color index
+    # (uses insertion order of PARTICLES dict)
+    from ..particles import PARTICLES
+    key_to_idx = {k: i for i, k in enumerate(PARTICLES.keys(), start=1)}
+
+    for sector, particle, x_base, y in labels:
         X, Y, fs = label_offsets_for_sector(sector, particle.key)
+        idx = key_to_idx.get(particle.key, 1)
+        color = colors[idx]
+
         plt.text(
             x_base + 10000 * X,
             y + Y,

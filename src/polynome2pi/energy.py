@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import cmath
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple, Union
 
 import numpy as np
 
@@ -10,14 +10,8 @@ from .cli import ScanSector
 from .particles import Particle
 
 
-# ---------------------------------------------------------------------
-# Internal constants (precomputed once)
-# ---------------------------------------------------------------------
-
 PI = cmath.pi
 TWO_PI = 2 * PI
-
-# powers used in Energie()
 TWO_PI_POW = {k: TWO_PI ** k for k in range(-30, 31)}
 
 E_C_POS = (
@@ -34,44 +28,41 @@ E_C_NEG = 2 * PI - PI ** (-1) + E_C_POS
 E_C_ZERO = PI ** (-12) + 2 * PI ** (-14)
 
 
-# ---------------------------------------------------------------------
-# Result container
-# ---------------------------------------------------------------------
-
 @dataclass
-class ScanResult:
-    particle: Particle
-    m_index: int
-    E_min: float
-    E_max: float
-    i_min: int
-    i_max: int
-    D: Tuple[float, float, float, float, float, float, float]
+class ParticleData:
+    # arrays indexed by m (0..511); we use m=1..511 like the legacy code
+    Emax: np.ndarray
+    Emin: np.ndarray
+    i_Emax: np.ndarray
+    i_Emin: np.ndarray
+    Dmax: np.ndarray  # shape (512, 6) -> i4,i3,i2,i1,i0,i-1
+    Dmin: np.ndarray  # shape (512, 6)
 
+    def m_values(self):
+        return range(1, 512)
 
-# ---------------------------------------------------------------------
-# Energy engine
-# ---------------------------------------------------------------------
 
 class EnergieEngine:
-    """
-    Stateless energy scan engine.
-    """
-
     def __init__(self, sector: ScanSector):
         self.sector = sector
-
-        # working buffers (local to instance, no globals)
         self.E = [0.0] * 8
         self.g = [[0.0] * 10 for _ in range(10)]
 
-    # -----------------------------------------------------------------
-    # Core energy function (unchanged physics)
-    # -----------------------------------------------------------------
-    def energie(
-        self,
-        i4, i3, i2, i1, i0, i_1, C
-    ) -> float:
+        # map sector -> J4,J3,J2 (same as your presets)
+        if sector is ScanSector.minimal:
+            self.J4, self.J3, self.J2 = 0, 0, 1
+        elif sector is ScanSector.light:
+            self.J4, self.J3, self.J2 = 0, 1, 1
+        elif sector is ScanSector.broad:
+            self.J4, self.J3, self.J2 = 1, 1, 2
+        elif sector is ScanSector.nucleon:
+            self.J4, self.J3, self.J2 = 1, 1, 1
+        elif sector is ScanSector.heavy:
+            self.J4, self.J3, self.J2 = 2, 2, 2
+        else:
+            raise ValueError(f"Unhandled sector: {sector}")
+
+    def energie(self, i4, i3, i2, i1, i0, i_1, C) -> float:
         g = self.g
         E = self.E
 
@@ -82,96 +73,139 @@ class EnergieEngine:
         g[1][0] = i0
         g[1][-1] = i_1
 
-        # C-dependent base term
         if C > 0:
-            E[0] = C * E_C_POS
+            E0 = C * E_C_POS
         elif C < 0:
-            E[0] = -C * E_C_NEG
+            E0 = -C * E_C_NEG
         else:
-            E[0] = E_C_ZERO
+            E0 = E_C_ZERO
 
         # gluonic
         for l in range(4, 1, -1):
-            E[0] += g[2][l] * TWO_PI_POW[l]
+            E0 += g[2][l] * TWO_PI_POW[l]
 
         # fermionic
         for n in range(1, -2, -1):
-            E[0] -= g[1][n] * TWO_PI_POW[n]
+            E0 -= g[1][n] * TWO_PI_POW[n]
 
         # interaction terms
         for l in range(4, 1, -1):
             for n in range(1, -2, -1):
                 if g[2][l] and g[1][n]:
                     if l + n < 4 and g[2][l] > 0:
-                        E[0] += g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n - 1]
+                        E0 += g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n - 1]
                     elif l + n < 4 and g[2][l] < 0:
-                        E[0] += g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n]
+                        E0 += g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n]
                     elif l + n > 3:
-                        E[0] -= g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n - 1]
+                        E0 -= g[2][l] * g[1][n] * 2 * TWO_PI_POW[-l - n - 1]
 
-                    E[0] += abs(g[2][l] * g[1][n]) * 2 * TWO_PI_POW[-8]
+                    E0 += abs(g[2][l] * g[1][n]) * 2 * TWO_PI_POW[-8]
                     g[2][l] = 0
                     g[1][n] = 0
                     break
 
-        return float(E[0])
+        return float(E0)
 
-    # -----------------------------------------------------------------
-    # Main scan
-    # -----------------------------------------------------------------
-    def run(
-        self,
-        particles: List[Particle],
-    ):
-        """
-        Run full scan.
-        Returns everything needed for plotting and reporting.
-        """
+    def _normalize_particles(
+        self, particles: Union[Dict[str, Particle], Iterable[Particle]]
+    ) -> List[Particle]:
+        if isinstance(particles, dict):
+            return list(particles.values())
+        return list(particles)
 
-        xs_by_particle: Dict[str, List[int]] = {p.key: [] for p in particles}
-        ys_by_particle: Dict[str, List[float]] = {p.key: [] for p in particles}
+    def run(self, particles: Union[Dict[str, Particle], Iterable[Particle]]):
+        particles_list = self._normalize_particles(particles)
+
+        xs_by_particle: Dict[str, List[int]] = {p.key: [] for p in particles_list}
+        ys_by_particle: Dict[str, List[float]] = {p.key: [] for p in particles_list}
         grey_segments: List[Tuple[Tuple[int, float], Tuple[int, float]]] = []
 
-        results: Dict[str, List[ScanResult]] = {p.key: [] for p in particles}
-        counts: Dict[int, int] = {}
+        # per-particle storage for report
+        results: Dict[str, ParticleData] = {}
+        for p in particles_list:
+            results[p.key] = ParticleData(
+                Emax=np.zeros(512, dtype=float),
+                Emin=np.zeros(512, dtype=float),
+                i_Emax=np.zeros(512, dtype=int),
+                i_Emin=np.zeros(512, dtype=int),
+                Dmax=np.zeros((512, 6), dtype=float),
+                Dmin=np.zeros((512, 6), dtype=float),
+            )
+
+        # counts per m (legacy logic)
+        Cnt = [0] * 520
+        mmax = 0
+        ct = 0
+
+        labels: List[Tuple[ScanSector, Particle, int, float, str]] = []
+        labeled_blocks = set()
 
         i_T = 0
         i_T1 = 0
 
-        for i4 in range(-2, 3):
-            for i3 in range(-2, 3):
-                for i2 in range(-2, 3):
+        for i4 in range(-2 * self.J4, 2 * self.J4 + 1):
+            for i3 in range(-2 * self.J3, 2 * self.J3 + 1):
+                for i2 in range(-2 * self.J2, 2 * self.J2 + 1):
                     for i1 in range(-6, 7):
                         for i0 in range(-6, 7):
                             for i_1 in range(-6, 7):
                                 for C in range(-2, 3):
-                                    i_T += 1
-
                                     E0 = self.energie(
                                         i4 / 2, i3 / 2, i2 / 2,
                                         i1 / 2, i0 / 2, i_1 / 2,
-                                        C / 2,
+                                        C / 2
                                     )
 
                                     if E0 <= 0:
                                         continue
 
-                                    # sector cuts
                                     if self.sector is ScanSector.heavy and E0 < 1500:
                                         continue
                                     if self.sector is ScanSector.nucleon and not (1836 <= E0 <= 1839):
                                         continue
 
-                                    i_T1 += 1
+                                    i_T += 1
 
-                                    matched = False
-                                    for p in particles:
-                                        if p.matches(E0):
+                                    m = int(256 + 32 * i4 + 4 * i3 + i2)
+                                    if m > mmax:
+                                        mmax = m
+                                        ct = 0
+                                    ct += 1
+                                    Cnt[mmax] = ct
+
+                                    matched_any = False
+
+                                    for p in particles_list:
+                                        d = E0 - p.theory_E
+                                        if d <= p.sd_plus and d >= p.sd_minus:
+                                            matched_any = True
+                                            i_T1 += 1
+
+                                            pdata = results[p.key]
+
+                                            if pdata.Emax[m] <= E0:
+                                                pdata.Emax[m] = E0
+                                                pdata.i_Emax[m] = i_T
+                                                pdata.Dmax[m] = [i4, i3, i2, i1, i0, i_1]
+
+                                            if pdata.Emin[m] == 0 or pdata.Emin[m] >= E0:
+                                                pdata.Emin[m] = E0
+                                                pdata.i_Emin[m] = i_T
+                                                pdata.Dmin[m] = [i4, i3, i2, i1, i0, i_1]
+
                                             xs_by_particle[p.key].append(i_T)
                                             ys_by_particle[p.key].append(E0)
-                                            matched = True
 
-                                    if not matched:
+                                            # add one label per (particle, m) block (like old "flag==1")
+                                            key = (p.key, m)
+                                            if key not in labeled_blocks:
+                                                labeled_blocks.add(key)
+                                                e_max = pdata.Emax[m]
+                                                e_min = pdata.Emin[m] if pdata.Emin[m] != 0 else e_max
+                                                mean = (e_max + e_min) / 2
+                                                labels.append((self.sector, p, pdata.i_Emin[m], mean))
+
+                                    if not matched_any:
                                         grey_segments.append(((i_T, E0), (i_T + 1, E0)))
 
         return (
@@ -179,7 +213,8 @@ class EnergieEngine:
             ys_by_particle,
             grey_segments,
             results,
-            counts,
+            Cnt,
+            labels,
             i_T,
             i_T1,
         )
