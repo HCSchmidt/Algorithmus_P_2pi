@@ -43,7 +43,6 @@ def parse_args(argv=None):
         help="Do not open a GUI window; still save the PNG output",
     )
 
-
     return parser.parse_args(argv)
 
 

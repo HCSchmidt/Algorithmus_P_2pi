@@ -1,93 +1,97 @@
-import os
-import datetime
-from pathlib import Path
-import cmath
+from __future__ import annotations
 
-import numpy as np
+import datetime
+import subprocess
+import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
 
-from .cli import ScanSector, PolynomeConfig, select_preset_by_sector, parse_args
-from .engine import run_scan
-from .constants import build_particle_table
-from .output.plotting import add_reference_lines, draw_points, add_legend_panels, add_particle_labels
-from .output.report import write_report
+from .cli import parse_args, ScanSector, select_preset_by_sector
 from .output.config import RESULTS_DIR
-from .initialize import init_result_arrays, init_plot_buffers
+from .particles import PARTICLES
+from .energy import EnergieEngine
+from .output.plotting import (
+    draw_points,
+    add_reference_lines,
+    add_legend_panels,
+    add_particle_labels,
+)
+from .output.report import write_report_csv
+
 from .utils import open_image
 
-Path(RESULTS_DIR).mkdir(exist_ok=True)
-
 def main(argv=None):
-    start_time_stamp = datetime.datetime.now()
+    start_time = datetime.datetime.now()
 
     args = parse_args(argv)
-    sector = args.sector
+    sector: ScanSector = args.sector
+    no_show: bool = args.no_show
+
     config = select_preset_by_sector(sector)
-    no_show = args.no_show
 
-    # data
-    Obj, obj_E, obj_min, obj_max = build_particle_table()
-    D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin = init_result_arrays()
-    xs_by_j, ys_by_j, grey_segments = init_plot_buffers()
+    results_dir = Path(RESULTS_DIR)
+    results_dir.mkdir(parents=True, exist_ok=True)
 
-    # scan
-    i_T, i_T1, _mmax = run_scan(
-        config=config,
-        sector=sector,
-        obj_E=obj_E,
-        obj_min=obj_min,
-        obj_max=obj_max,
-        Cnt=Cnt,
-        Emax=Emax,
-        Emin=Emin,
-        i_Emax=i_Emax,
-        i_Emin=i_Emin,
-        Dmax=Dmax,
-        Dmin=Dmin,
-        xs_by_j=xs_by_j,
-        ys_by_j=ys_by_j,
-        grey_segments=grey_segments,
-    )
+    base_name = config.name
+    png_path = results_dir / f"{base_name}.png"
+    csv_path = results_dir / f"{base_name}.csv"
 
-    # plot points (batched)
-    draw_points(xs_by_j, ys_by_j, grey_segments)
 
-    # report + particle labels
+    # ------------------------------------------------------------------
+    # Energy scan
+    # ------------------------------------------------------------------
+    engine = EnergieEngine(sector=sector)
+
+    (
+        xs_by_j,
+        ys_by_j,
+        grey_segments,
+        results,
+        Cnt,
+        labels,
+        i_T,
+        i_T1,
+    ) = engine.run(PARTICLES)
+
     print("possible ET:", i_T, "real ET:", i_T1)
-    labels = write_report(
-        config.name,
-        sector=sector,
-        Obj=Obj,
-        D_i_N=D_i_N,
-        D_i_c_=D_i_c_,
-        Cnt=Cnt,
-        Emax=Emax,
-        Emin=Emin,
-        i_Emax=i_Emax,
-        i_Emin=i_Emin,
-        Dmax=Dmax,
-        Dmin=Dmin,
-    )
 
-    # reference lines and legend panels
+    # ------------------------------------------------------------------
+    # Plot
+    # ------------------------------------------------------------------
+    plt.figure(figsize=(10, 6))
+
+    draw_points(xs_by_j, ys_by_j, grey_segments)
     add_reference_lines(sector, i_T)
-    add_legend_panels(sector, i_T, Obj, i_Emax, D_i_c_)
+    add_legend_panels(sector, i_T, PARTICLES, results)
     add_particle_labels(labels)
 
-    # save/show
-    output_png = os.path.join(RESULTS_DIR, f"{config.name}.png")
-    fig = plt.gcf()
-    fig.set_size_inches(10, 6)
-    fig.savefig(output_png, dpi=100)
+    plt.tight_layout()
+    plt.savefig(png_path, dpi=120)
+    plt.close()
 
-    end_time_stamp = datetime.datetime.now()
-    delta = end_time_stamp - start_time_stamp
-    print(f"took {delta.seconds} seconds")
+    # ------------------------------------------------------------------
+    # CSV report
+    # ------------------------------------------------------------------
+    write_report_csv(
+        file_path=csv_path,
+        sector=sector,
+        particles=PARTICLES,
+        results=results,
+        Cnt=Cnt,
+    )
 
+    # ------------------------------------------------------------------
+    # Open PNG (OS-independent)
+    # ------------------------------------------------------------------
     if not no_show:
-        open_image(output_png)
+        open_file_cross_platform(png_path)
+
+    end_time = datetime.datetime.now()
+    print(f"Finished in {(end_time - start_time).seconds} seconds")
+    print(f"PNG  → {png_path}")
+    print(f"CSV  → {csv_path}")
+
 
 if __name__ == "__main__":
     main()
