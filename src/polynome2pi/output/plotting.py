@@ -3,8 +3,8 @@ import cmath
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 
-from .cli import ScanSector
-from .constants import get_colors
+from ..cli import ScanSector
+from ..constants import get_colors
     
 
 def draw_points(xs_by_j, ys_by_j, grey_segments):
