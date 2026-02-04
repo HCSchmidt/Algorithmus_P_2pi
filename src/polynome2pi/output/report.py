@@ -1,6 +1,5 @@
 import os
 import csv
-from pathlib import Path
 
 from ..cli import ScanSector
 from ..constants import get_colors
@@ -21,9 +20,7 @@ def write_report(
     Dmin,
 ):
     """
-    Writes two CSV files:
-      - <stem>_events.csv  : one row per (particle, m) hit, containing max/mean/min + deltas
-      - <stem>_summary.csv : one row per particle, containing total ΣΔi, total counts, percent
+    Writes a single CSV file mirroring the old TXT table structure.
 
     Returns:
       labels: list of tuples (sector, j, x_base, y, text, color) used for plotting.
@@ -31,8 +28,7 @@ def write_report(
     colors = get_colors()
     labels = []
 
-    events_rows = []
-    summary_rows = []
+    rows = []
 
     sector_value = getattr(sector, "value", str(sector))
 
@@ -48,10 +44,52 @@ def write_report(
         labeled_this_particle = False
 
         for m in range(1, 512):
+            if i_Emax[j, m] != 0:
+                had_hits = True
+                break
+
+        if not had_hits:
+            rows.append({
+                "particle": Obj[j][0],
+                "row_type": "mean",
+                "theory": Obj[j][1],
+                "E": "",
+                "total": "",
+                "i4": "",
+                "i3": "",
+                "i2": "",
+                "i1": "",
+                "i0": "",
+                "i_minus_1": "",
+                "C": "",
+                "cts": "",
+                "di_over_2pi_percent": "",
+                "note": "only with i4 > 1",
+            })
+            continue
+
+        # Append particle header row
+        rows.append({
+            "particle": Obj[j][0],
+            "row_type": "particle",
+            "theory": "",
+            "E": "",
+            "total": "",
+            "i4": "",
+            "i3": "",
+            "i2": "",
+            "i1": "",
+            "i0": "",
+            "i_minus_1": "",
+            "C": "",
+            "cts": "",
+            "di_over_2pi_percent": "",
+            "note": "",
+        })
+
+        for m in range(1, 512):
             if i_Emax[j, m] == 0:
                 continue
-
-            had_hits = True
 
             # same calculations as TXT
             E_mean = (Emax[j, m] + Emin[j, m]) / 2
@@ -73,77 +111,128 @@ def write_report(
                 labels.append((sector, j, i_Emin[j, m], E_mean_val, Obj[j][9], colors[j]))
                 labeled_this_particle = True
 
-            # ---- events CSV row (wide format: max/mean/min + deltas + coeffs for max & min) ----
-            events_rows.append({
-                "sector": sector_value,
-                "particle": Obj[j][0],
-                "particle_symbol": Obj[j][9],
-                "m_bin": m,
-
-                "theory_E": Obj[j][2],
-                "theory_m_min": m_min,
-                "theory_m_max": m_max,
-
-                "E_max": Emax_val,
-                "E_mean": E_mean_val,
-                "E_min": Emin_val,
-
-                "N_max": int(i_Emax[j, m]),
-                "N_min": int(i_Emin[j, m]),
-
-                "delta_i": int(Di_E),
-                "abs_delta_i": int(abs(Di_E)),
-                "counts": int(Cnt_),
-                "delta_i_percent": float(D_i_c),
-
-                # Dmax coefficients
-                "max_i4": Dmax[j, m, 0] / 2,
-                "max_i3": Dmax[j, m, 1] / 2,
-                "max_i2": Dmax[j, m, 2] / 2,
-                "max_i1": Dmax[j, m, 3] / 2,
-                "max_i0": Dmax[j, m, 4] / 2,
-                "max_i_minus_1": Dmax[j, m, 5] / 2,
-                "max_C": Dmax[j, m, 6] / 2,
-
-                # Dmin coefficients
-                "min_i4": Dmin[j, m, 0] / 2,
-                "min_i3": Dmin[j, m, 1] / 2,
-                "min_i2": Dmin[j, m, 2] / 2,
-                "min_i1": Dmin[j, m, 3] / 2,
-                "min_i0": Dmin[j, m, 4] / 2,
-                "min_i_minus_1": Dmin[j, m, 5] / 2,
-                "min_C": Dmin[j, m, 6] / 2,
+            # max row
+            rows.append({
+                "particle": "",
+                "row_type": "max",
+                "theory": m_max,
+                "E": Emax_val,
+                "total": int(i_Emax[j, m]),
+                "i4": Dmax[j, m, 0] / 2,
+                "i3": Dmax[j, m, 1] / 2,
+                "i2": Dmax[j, m, 2] / 2,
+                "i1": Dmax[j, m, 3] / 2,
+                "i0": Dmax[j, m, 4] / 2,
+                "i_minus_1": Dmax[j, m, 5] / 2,
+                "C": Dmax[j, m, 6] / 2,
+                "cts": "",
+                "di_over_2pi_percent": "",
+                "note": "",
             })
 
-        # ---- summary row per particle (like TXT "total" line) ----
-        if j > 1 and had_hits and i_Emax[j, 516] > 0:
+            # mean row
+            rows.append({
+                "particle": "",
+                "row_type": "mean",
+                "theory": Obj[j][1],
+                "E": E_mean_val,
+                "total": int(Di_E),
+                "i4": "",
+                "i3": "",
+                "i2": "",
+                "i1": "",
+                "i0": "",
+                "i_minus_1": "",
+                "C": "",
+                "cts": "",
+                "di_over_2pi_percent": "",
+                "note": "",
+            })
+
+            # min row
+            rows.append({
+                "particle": "",
+                "row_type": "min",
+                "theory": m_min,
+                "E": Emin_val,
+                "total": int(i_Emin[j, m]),
+                "i4": Dmin[j, m, 0] / 2,
+                "i3": Dmin[j, m, 1] / 2,
+                "i2": Dmin[j, m, 2] / 2,
+                "i1": Dmin[j, m, 3] / 2,
+                "i0": Dmin[j, m, 4] / 2,
+                "i_minus_1": Dmin[j, m, 5] / 2,
+                "C": Dmin[j, m, 6] / 2,
+                "cts": "",
+                "di_over_2pi_percent": "",
+                "note": "",
+            })
+
+            # delta row
+            rows.append({
+                "particle": "",
+                "row_type": "delta",
+                "theory": "",
+                "E": "",
+                "total": int(abs(Di_E)),
+                "i4": "",
+                "i3": "",
+                "i2": "",
+                "i1": "",
+                "i0": "",
+                "i_minus_1": "",
+                "C": "",
+                "cts": int(Cnt_),
+                "di_over_2pi_percent": float(D_i_c),
+                "note": "∆ abs(i)",
+            })
+
+        # total row per particle if applicable
+        if j > 1 and i_Emax[j, 516] > 0:
             D_i_c_tot = round(float(i_Emax[j, 0]) * 100 / i_Emax[j, 516], 5)
             D_i_c_[j] = f"{D_i_c_tot} %"
 
-            summary_rows.append({
-                "sector": sector_value,
-                "particle": Obj[j][0],
-                "particle_symbol": Obj[j][9],
-                "theory_E": Obj[j][2],
-                "sum_abs_delta_i": int(i_Emax[j, 0]),
-                "total_counts": int(i_Emax[j, 516]),
-                "delta_i_percent": float(D_i_c_tot),
+            rows.append({
+                "particle": "",
+                "row_type": "total",
+                "theory": "",
+                "E": "",
+                "total": int(i_Emax[j, 0]),
+                "i4": "",
+                "i3": "",
+                "i2": "",
+                "i1": "",
+                "i0": "",
+                "i_minus_1": "",
+                "C": "",
+                "cts": int(i_Emax[j, 516]),
+                "di_over_2pi_percent": float(D_i_c_tot),
+                "note": "Σ ∆i",
             })
 
-    # ---- write events CSV ----
-    if events_rows:
-        events_path = os.path.join(RESULTS_DIR, f"{base_name}_events.csv")
-        with open(events_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=list(events_rows[0].keys()))
-            writer.writeheader()
-            writer.writerows(events_rows)
+    fieldnames = [
+        "particle",
+        "row_type",
+        "theory",
+        "E",
+        "total",
+        "i4",
+        "i3",
+        "i2",
+        "i1",
+        "i0",
+        "i_minus_1",
+        "C",
+        "cts",
+        "di_over_2pi_percent",
+        "note",
+    ]
 
-    # ---- write summary CSV ----
-    if summary_rows:
-        summary_path = os.path.join(RESULTS_DIR, f"{base_name}_summary.csv")
-        with open(summary_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=list(summary_rows[0].keys()))
+    if rows:
+        path = os.path.join(RESULTS_DIR, f"{base_name}.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerows(summary_rows)
+            writer.writerows(rows)
 
     return labels
