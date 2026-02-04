@@ -95,13 +95,8 @@ def main(argv=None):
     plt.savefig(png_path, dpi=120)
     plt.close()
 
-    write_report_csv(
-        file_path=csv_path,
-        sector=sector,
-        particles=PARTICLES,
-        results=results,
-        Cnt=Cnt,
-    )
+
+    write_report_csv(csv_path, sector, PARTICLES, results, Cnt)
 
     if not no_show:
         open_image(str(png_path))

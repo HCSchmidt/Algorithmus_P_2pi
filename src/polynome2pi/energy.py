@@ -30,17 +30,40 @@ E_C_ZERO = PI ** (-12) + 2 * PI ** (-14)
 
 @dataclass
 class ParticleData:
-    # arrays indexed by m (0..511); we use m=1..511 like the legacy code
-    Emax: np.ndarray
-    Emin: np.ndarray
-    i_Emax: np.ndarray
-    i_Emin: np.ndarray
-    Dmax: np.ndarray  # shape (512, 6) -> i4,i3,i2,i1,i0,i-1
-    Dmin: np.ndarray  # shape (512, 6)
+    """
+    Per-particle scan results keyed by m in [1..511].
+    This mirrors the legacy arrays used by the original script so the CSV
+    can stay identical.
 
-    def m_values(self):
+    Conventions:
+      - Emax/Emin store energies (float).
+      - i_Emax/i_Emin store the scan index i_T where max/min occurred (int).
+      - Dmax/Dmin store the raw integer coefficients (NOT divided by 2):
+            [i4, i3, i2, i1, i0, i_minus_1, C]
+        The report layer divides by 2 when writing CSV to match the legacy output.
+    """
+
+    Emax: np.ndarray      # shape (512,), float
+    Emin: np.ndarray      # shape (512,), float
+    i_Emax: np.ndarray    # shape (512,), int
+    i_Emin: np.ndarray    # shape (512,), int
+    Dmax: np.ndarray      # shape (512, 7), int (or float ok), raw loop ints
+    Dmin: np.ndarray      # shape (512, 7), int (or float ok), raw loop ints
+
+    @classmethod
+    def empty(cls) -> "ParticleData":
+        return cls(
+            Emax=np.zeros(512, dtype=float),
+            Emin=np.zeros(512, dtype=float),
+            i_Emax=np.zeros(512, dtype=int),
+            i_Emin=np.zeros(512, dtype=int),
+            Dmax=np.zeros((512, 7), dtype=int),
+            Dmin=np.zeros((512, 7), dtype=int),
+        )
+
+    def m_values(self) -> range:
+        # legacy iterates m=1..511
         return range(1, 512)
-
 
 class EnergieEngine:
     def __init__(self, sector: ScanSector):
@@ -128,8 +151,8 @@ class EnergieEngine:
                 Emin=np.zeros(512, dtype=float),
                 i_Emax=np.zeros(512, dtype=int),
                 i_Emin=np.zeros(512, dtype=int),
-                Dmax=np.zeros((512, 6), dtype=float),
-                Dmin=np.zeros((512, 6), dtype=float),
+                Dmax=np.zeros((512, 7), dtype=float),
+                Dmin=np.zeros((512, 7), dtype=float),
             )
 
         # counts per m (legacy logic)
@@ -186,12 +209,12 @@ class EnergieEngine:
                                             if pdata.Emax[m] <= E0:
                                                 pdata.Emax[m] = E0
                                                 pdata.i_Emax[m] = i_T
-                                                pdata.Dmax[m] = [i4, i3, i2, i1, i0, i_1]
+                                                pdata.Dmax[m] = [i4, i3, i2, i1, i0, i_1, C]
 
                                             if pdata.Emin[m] == 0 or pdata.Emin[m] >= E0:
                                                 pdata.Emin[m] = E0
                                                 pdata.i_Emin[m] = i_T
-                                                pdata.Dmin[m] = [i4, i3, i2, i1, i0, i_1]
+                                                pdata.Dmin[m] = [i4, i3, i2, i1, i0, i_1, C]
 
                                             xs_by_particle[p.key].append(i_T)
                                             ys_by_particle[p.key].append(E0)

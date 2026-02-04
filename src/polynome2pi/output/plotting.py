@@ -3,14 +3,21 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 
 from ..cli import ScanSector
-from ..constants import get_colors
 from ..particles import Particle
 
 
 # ---------------------------------------------------------------------
 # Scatter + grey background segments
 # ---------------------------------------------------------------------
-
+def get_colors():
+    return [
+        "#FFFFFF", "#000000", "#F60000", "#05FB4F", "#CFCF00", "#000000", "#07FCE4",
+        "#F700D2", "#00F73E", "#7BB91F", "#A9BF06", "#047619", "#047619", "#789E20",
+        "#CFCF00", "#CF00B7", "#EC61A9", "#FA9805", "#4200F6", "#495999", "#B91F50",
+        "#CB4088", "#F90404", "#000000", "#4D8E2F", "#499999", "#F50606", "#146108",
+    ]
+    
+    
 def draw_points(xs_by_particle, ys_by_particle, grey_segments):
     """
     xs_by_particle / ys_by_particle:
