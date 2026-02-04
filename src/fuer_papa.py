@@ -7,8 +7,8 @@ from polynome2pi.main import main
 # =========================
 
 ARGS = [
-    "--sector", "nucleon",
-    "--no-show",
+    "--sector", "heavy",
+    # "--no-show",
 ]
 
 # Examples:
