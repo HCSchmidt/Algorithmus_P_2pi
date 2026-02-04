@@ -1,7 +1,0 @@
-sector,particle,particle_symbol,theory_E,sum_abs_delta_i,total_counts,delta_i_percent
-light,u,u,4.18,603,16632,3.62554
-light,d,d,9.14,2285,16189,14.11452
-light,s,s,182.8,16607,21970,75.58944
-light,Muon,muon,206.7682827,1,21970,0.00455
-light,Pion 0,$u\overline{d}-\overline{u}d$,264.1430,1665,10985,15.15703
-light,Pion +-,"$u\overline{u},\overline{d}d$",273.13243,832,10985,7.57396
