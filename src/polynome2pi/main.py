@@ -1,111 +1,54 @@
 from __future__ import annotations
 
-import datetime
 from pathlib import Path
+import time
 
-import matplotlib.pyplot as plt
-
-from .cli import parse_args, ScanSector, select_preset_by_sector
-from .output.config import RESULTS_DIR
-from .particles import PARTICLES
-from .energy import EnergieEngine
-from .output.plotting import (
-    draw_points,
-    add_reference_lines,
-    add_legend_panels,
-    add_particle_labels,
-)
-from .output.report import write_report_csv
-from .utils import open_image
+from .cli import parse_args
+from .presets import preset_for_sector
+from .particles import default_particles
+from .energy_model import EnergyModel
+from .engine import ScanEngine
+from .report import write_results_csv
+from .plotting import plot_scan, open_file
 
 
-def _legend_stats_from_results(results, Cnt):
-    """
-    Build i_Emax (total Δi) and D_i_c_ (Δi/(2π) %) dictionaries for the legend,
-    matching the semantics of the original script.
-    """
-    i_Emax = {}
-    D_i_c_ = {}
-
-    for key, pdata in results.items():
-        total_delta_i = 0
-        total_counts = 0
-
-        for m in pdata.m_values():
-            if pdata.i_Emax[m] == 0:
-                continue
-
-            delta_i = pdata.i_Emax[m] - pdata.i_Emin[m] + 1
-            total_delta_i += abs(delta_i)
-
-            c = Cnt[m]
-            if c:
-                total_counts += c
-
-        i_Emax[key] = total_delta_i
-        if total_counts > 0:
-            D_i_c_[key] = f"{(total_delta_i * 100 / total_counts):.5f} %"
-        else:
-            D_i_c_[key] = ""
-
-    return i_Emax, D_i_c_
-
-
-def main(argv=None):
-    start_time = datetime.datetime.now()
-
+def main(argv=None) -> int:
     args = parse_args(argv)
-    sector: ScanSector = args.sector
-    no_show: bool = args.no_show
+    preset = preset_for_sector(args.sector)
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    config = select_preset_by_sector(sector)
+    particles = default_particles()
+    model = EnergyModel()
+    engine = ScanEngine(preset, model)
 
-    results_dir = Path(RESULTS_DIR)
-    results_dir.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+    outputs = engine.run(particles)
+    dt = time.time() - t0
 
-    base_name = config.name
-    png_path = results_dir / f"{base_name}.png"
-    csv_path = results_dir / f"{base_name}.csv"
+    print(f"possible ET: {outputs.possible_ET}  real ET: {outputs.real_ET}")
+    print(f"took {dt:.2f} seconds")
 
-    engine = EnergieEngine(sector=sector)
+    csv_path = out_dir / f"results_{preset.name}.csv"
+    png_path = out_dir / f"plot_{preset.name}.png"
 
-    (
-        xs_by_particle,
-        ys_by_particle,
-        grey_segments,
-        results,
-        Cnt,
-        labels,
-        i_T,
-        i_T1,
-    ) = engine.run(PARTICLES)  # OK: engine.run() now accepts dict
+    write_results_csv(csv_path, preset.sector, particles, outputs.bins_by_particle)
+    plot_scan(
+        png_path,
+        particles,
+        outputs.matched_points,
+        outputs.unmatched_segments,
+        title=f"P(2π) scan – sector: {preset.name}",
+    )
 
-    print("possible ET:", i_T, "real ET:", i_T1)
+    print(f"Wrote CSV: {csv_path}")
+    print(f"Wrote PNG: {png_path}")
 
-    i_Emax, D_i_c_ = _legend_stats_from_results(results, Cnt)
+    if not args.no_open:
+        open_file(png_path)
 
-    plt.figure(figsize=(10, 6))
-
-    draw_points(xs_by_particle, ys_by_particle, grey_segments)
-    add_reference_lines(sector, i_T)
-    add_legend_panels(sector, i_T, PARTICLES, i_Emax, D_i_c_)
-    add_particle_labels(labels)
-
-    plt.tight_layout()
-    plt.savefig(png_path, dpi=120)
-    plt.close()
-
-
-    write_report_csv(csv_path, sector, PARTICLES, results, Cnt)
-
-    if not no_show:
-        open_image(str(png_path))
-
-    end_time = datetime.datetime.now()
-    print(f"Finished in {(end_time - start_time).seconds} seconds")
-    print(f"PNG  → {png_path}")
-    print(f"CSV  → {csv_path}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
