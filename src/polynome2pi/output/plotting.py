@@ -80,7 +80,7 @@ def add_legend_panels(sector: ScanSector, i_T: int, Obj, i_Emax, D_i_c_):
     if sector is ScanSector.broad:
         x_a = i_T * 0.65
         dx = i_T * 0.08
-        i = -20
+        i = -80
         for jj in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 16, 17, 18, 19]:
             particle = str(Obj[jj][9])
             plt.text(x_a, i, Obj[jj][0])
