@@ -10,9 +10,7 @@ from matplotlib.collections import LineCollection
 from .particles import Particle
 
 
-def default_colors() -> List[str]:
-    # same palette style as legacy (not identical required)
-    return [
+colors =  [
         "#000000", "#F60000", "#05FB4F", "#CFCF00", "#07FCE4", "#F700D2",
         "#00F73E", "#7BB91F", "#A9BF06", "#789E20", "#CF00B7", "#EC61A9",
         "#FA9805", "#4200F6", "#495999", "#B91F50", "#CB4088", "#4D8E2F",
@@ -36,16 +34,15 @@ def plot_scan(
     plt.xlabel("Scan index N")
     plt.ylabel("Energy in $m_e$")
 
-    colors = default_colors()
     keys = list(particles.keys())
 
     for idx, key in enumerate(keys):
         xs, ys = matched_points.get(key, ([], []))
         if xs:
-            plt.scatter(xs, ys, s=60, c=colors[idx % len(colors)], marker=".", linewidths=0, label=particles[key].name)
+            plt.scatter(xs, ys, s=40, c=colors[idx % len(colors)], marker=".", linewidths=0, label=particles[key].name)
 
     if unmatched_segments:
-        lc = LineCollection(unmatched_segments, colors="#C0BCBC", linewidths=1)
+        lc = LineCollection(unmatched_segments, colors="#C0BCBC", linewidths=3)
         plt.gca().add_collection(lc)
 
     # keep legend lightweight

@@ -8,13 +8,13 @@ from polynome2pi.main import main
 
 ARGS = [
     "--sector", "nucleon",
-    # "--no-show",
+    # "--no-open",
 ]
 
 # Examples:
 # ARGS = ["--sector", "minimal"]
 # ARGS = ["--sector", "nucleon"]
-# ARGS = ["--sector", "heavy", "--base-name", "tau_scan"]
+# ARGS = ["--sector", "heavy"]
 # ARGS = ["--sector", "light"]
 
 # =======================
