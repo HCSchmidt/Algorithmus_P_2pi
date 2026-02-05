@@ -19,9 +19,7 @@ class Particle:
         return self.theory_text if self.theory_text else str(self.theory_E)
 
 
-def default_particles() -> Dict[str, Particle]:
-    # This list mirrors your legacy Obj table (core subset).
-    # You can extend it as needed.
+def get_particles() -> Dict[str, Particle]:
     particles = [
         Particle("electron", "e", "e", 1.0, -0.005, 0.0, "1.00000000000(31)"),
         Particle("u", "u", "u", 4.18, -0.51, 0.96, "4.18(-0.51)(0.96)"),

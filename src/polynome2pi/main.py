@@ -5,7 +5,7 @@ import time
 
 from .cli import parse_args
 from .presets import preset_for_sector
-from .particles import default_particles
+from .particles import get_particles
 from .energy_model import EnergyModel
 from .engine import ScanEngine
 from .report import write_results_csv
@@ -18,7 +18,7 @@ def main(argv=None) -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    particles = default_particles()
+    particles = get_particles()
     model = EnergyModel()
     engine = ScanEngine(preset, model)
 
