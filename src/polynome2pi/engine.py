@@ -58,6 +58,67 @@ class ScanOutputs:
     real_ET: int
 
 
+@dataclass
+class BinStore:
+    """Small wrapper around per-particle m-bin results with clear intent."""
+
+    _by_m: Dict[int, BinResult]
+
+    def get(self, m: int) -> BinResult | None:
+        return self._by_m.get(m)
+
+    def upsert(self, m: int, i_T: int, E0: float, coeffs: Coeff7, m_count: int) -> None:
+        current = self._by_m.get(m)
+        if current is None:
+            self._by_m[m] = BinResult(
+                m=m,
+                i_T_min=i_T,
+                i_T_max=i_T,
+                E_min=E0,
+                E_max=E0,
+                coeff_min=coeffs,
+                coeff_max=coeffs,
+                counts=int(m_count),
+            )
+            return
+
+        # keep first/last occurrence in i_T
+        current.i_T_min = min(current.i_T_min, i_T)
+        current.i_T_max = max(current.i_T_max, i_T)
+
+        # update min/max energy and coeffs
+        if E0 <= current.E_min or current.E_min == 0:
+            current.E_min = E0
+            current.coeff_min = coeffs
+        if E0 >= current.E_max:
+            current.E_max = E0
+            current.coeff_max = coeffs
+
+        # update counts
+        current.counts = int(m_count)
+
+    def values_sorted(self) -> List[BinResult]:
+        return sorted(self._by_m.values(), key=lambda r: r.m)
+
+
+@dataclass
+class ParticleAccumulator:
+    """All scan outputs we collect for one particle."""
+
+    particle: Particle
+    bins: BinStore
+    xs: List[int]
+    ys: List[float]
+
+    def record_match(self, i_T: int, m: int, E0: float, coeffs: Coeff7, m_count: int) -> None:
+        # Plot buffers
+        self.xs.append(i_T)
+        self.ys.append(E0)
+
+        # Result bins
+        self.bins.upsert(m=m, i_T=i_T, E0=E0, coeffs=coeffs, m_count=m_count)
+
+
 class ScanEngine:
     def __init__(self, preset: ScanPreset, model: EnergyModel):
         self.preset = preset
@@ -72,15 +133,21 @@ class ScanEngine:
         preset = self.preset
         model = self.model
 
-        # bins: particle_key -> m -> BinResult under construction
-        bins: Dict[str, Dict[int, BinResult]] = {k: {} for k in particles.keys()}
+        # One accumulator per particle (replaces nested dicts and separate buffers)
+        accumulators: Dict[str, ParticleAccumulator] = {
+            key: ParticleAccumulator(
+                particle=p,
+                bins=BinStore(_by_m={}),
+                xs=[],
+                ys=[],
+            )
+            for key, p in particles.items()
+        }
 
         # counts per m (legacy used Cnt[mmax], here: counts per m directly)
         m_counts = np.zeros(520, dtype=int)
 
-        # plotting buffers
-        matched_xs: Dict[str, List[int]] = {k: [] for k in particles.keys()}
-        matched_ys: Dict[str, List[float]] = {k: [] for k in particles.keys()}
+        # grey segments for unmatched scan points
         unmatched_segments: List[Tuple[Tuple[int, float], Tuple[int, float]]] = []
 
         possible_ET = 0
@@ -124,57 +191,38 @@ class ScanEngine:
                                     if 0 <= m < len(m_counts):
                                         m_counts[m] += 1
 
+                                    coeffs: Coeff7 = (i4, i3, i2, i1, i0, i_minus1, C)
+
                                     # match against particles
                                     matched_any = False
-                                    for pkey, p in particles.items():
-                                        # tolerance window around theory_E
+                                    for pkey, acc in accumulators.items():
+                                        p = acc.particle
+                                        # allowing tolerance window around theory_E
                                         if (E0 - p.theory_E) <= p.sd_plus and (E0 - p.theory_E) >= p.sd_minus:
                                             matched_any = True
                                             real_ET += 1
 
-                                            # update plotting buffers
-                                            matched_xs[pkey].append(i_T)
-                                            matched_ys[pkey].append(E0)
-
-                                            # update per-particle, per-m-bin results
-                                            coeffs: Coeff7 = (i4, i3, i2, i1, i0, i_minus1, C)
-                                            current = bins[pkey].get(m)
-                                            if current is None:
-                                                bins[pkey][m] = BinResult(
-                                                    m=m,
-                                                    i_T_min=i_T,
-                                                    i_T_max=i_T,
-                                                    E_min=E0,
-                                                    E_max=E0,
-                                                    coeff_min=coeffs,
-                                                    coeff_max=coeffs,
-                                                    counts=int(m_counts[m]),
-                                                )
-                                            else:
-                                                # keep first/last occurrence in i_T
-                                                current.i_T_min = min(current.i_T_min, i_T)
-                                                current.i_T_max = max(current.i_T_max, i_T)
-
-                                                # update min/max energy and coeffs
-                                                if E0 <= current.E_min or current.E_min == 0:
-                                                    current.E_min = E0
-                                                    current.coeff_min = coeffs
-                                                if E0 >= current.E_max:
-                                                    current.E_max = E0
-                                                    current.coeff_max = coeffs
-
-                                                # update counts
-                                                current.counts = int(m_counts[m])
+                                            acc.record_match(
+                                                i_T=i_T,
+                                                m=m,
+                                                E0=E0,
+                                                coeffs=coeffs,
+                                                m_count=int(m_counts[m]),
+                                            )
 
                                     if not matched_any:
                                         unmatched_segments.append(((i_T, E0), (i_T + 1, E0)))
 
         bins_by_particle: Dict[str, List[BinResult]] = {
-            pkey: sorted(mmap.values(), key=lambda r: r.m) for pkey, mmap in bins.items()
+            key: acc.bins.values_sorted() for key, acc in accumulators.items()
+        }
+
+        matched_points: Dict[str, Tuple[List[int], List[float]]] = {
+            key: (acc.xs, acc.ys) for key, acc in accumulators.items()
         }
 
         return ScanOutputs(
-            matched_points={k: (matched_xs[k], matched_ys[k]) for k in particles.keys()},
+            matched_points=matched_points,
             unmatched_segments=unmatched_segments,
             bins_by_particle=bins_by_particle,
             possible_ET=i_T,  # comparable to legacy “possible ET” after cuts
