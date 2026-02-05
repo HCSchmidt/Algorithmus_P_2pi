@@ -1,6 +1,8 @@
-from enum import Enum
-from dataclasses import dataclass
+from __future__ import annotations
+
 import argparse
+from enum import Enum
+
 
 class ScanSector(str, Enum):
     minimal = "minimal"
@@ -10,56 +12,27 @@ class ScanSector(str, Enum):
     heavy = "heavy"
 
 
-@dataclass
-class PolynomeConfig:
-    J4: int
-    J3: int
-    J2: int
-    add_info: str = ""
-
-    @property
-    def name(self) -> str:
-        suffix = f"_{self.add_info}" if self.add_info else ""
-        return f"Polynom_{self.J4}{self.J3}{self.J2}{suffix}"
-
-
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="Run P(2π) polynomial scan and plot results")
+    parser = argparse.ArgumentParser(description="Scan P(2π) coefficient space and match particle energies.")
 
     parser.add_argument(
         "--sector",
         type=ScanSector,
         choices=list(ScanSector),
         required=True,
-        help=(
-            "Physical scan sector (polynomial depth). "
-            f"Must be one of: {', '.join([e.value for e in ScanSector])}."
-        ),
+        help="Scan preset. One of: minimal/light/broad/nucleon/heavy",
     )
 
     parser.add_argument(
-        "--no-show",
+        "--out-dir",
+        default="results",
+        help="Output directory for CSV and PNG (default: results)",
+    )
+
+    parser.add_argument(
+        "--no-open",
         action="store_true",
-        help="Do not open a GUI window; still save the PNG output",
+        help="Do not open the generated PNG automatically.",
     )
 
     return parser.parse_args(argv)
-
-
-def select_preset_by_sector(sector: ScanSector) -> PolynomeConfig:
-    if sector is ScanSector.minimal:
-        return PolynomeConfig(J4=0, J3=0, J2=1, add_info=sector.value)
-
-    if sector is ScanSector.light:
-        return PolynomeConfig(J4=0, J3=1, J2=1, add_info=sector.value)
-
-    if sector is ScanSector.broad:
-        return PolynomeConfig(J4=1, J3=1, J2=2, add_info=sector.value)
-
-    if sector is ScanSector.nucleon:
-        return PolynomeConfig(J4=1, J3=1, J2=1, add_info=sector.value)
-
-    if sector is ScanSector.heavy:
-        return PolynomeConfig(J4=2, J3=2, J2=2, add_info=sector.value)
-
-    raise ValueError(f"Unhandled sector: {sector}")
