@@ -35,4 +35,8 @@ def parse_args(argv=None):
         help="Do not open the generated PNG automatically.",
     )
 
+    parser.add_argument("--sensitivity", action="store_true")
+    parser.add_argument("--eps", type=float, default=1e-3)
+    parser.add_argument("--steps", type=int, default=21)
+    
     return parser.parse_args(argv)

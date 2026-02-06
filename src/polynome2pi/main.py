@@ -10,24 +10,37 @@ from .energy_model import EnergyModel
 from .engine import ScanEngine
 from .report import write_results_csv
 from .plotting import plot_scan, open_file
-
+from .sensitivity import run_sensitivity, write_sensitivity_csv, plot_sensitivity
 
 def main(argv=None) -> int:
     args = parse_args(argv)
     preset = preset_for_sector(args.sector)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-
+    
     particles = get_particles()
+
+    if args.sensitivity:
+        rows = run_sensitivity(
+            sector=args.sector,
+            preset=preset,
+            particles=particles,
+            eps=args.eps,
+            steps=args.steps,
+        )
+        csv_path = out_dir / f"results_{preset.name}_sensitivity_eps_{args.eps}.csv"
+        png_path = out_dir / f"plot_{preset.name}_sensitivity_eps_{args.eps}.png"
+
+        write_sensitivity_csv(csv_path, rows)
+        plot_sensitivity(rows, png_path)
+        return
+
     model = EnergyModel()
     engine = ScanEngine(preset, model)
 
-    t0 = time.time()
     outputs = engine.run(particles)
-    dt = time.time() - t0
 
     print(f"possible ET: {outputs.possible_ET}  real ET: {outputs.real_ET}")
-    print(f"took {dt:.2f} seconds")
 
     csv_path = out_dir / f"results_{preset.name}.csv"
     png_path = out_dir / f"plot_{preset.name}.png"

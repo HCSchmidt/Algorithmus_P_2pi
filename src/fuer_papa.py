@@ -22,5 +22,8 @@ ARGS = [
 # =======================
 
 if __name__ == "__main__":
-    print("Running with arguments:", ARGS)
-    main(ARGS)
+    main(["--sector", "minimal"])
+    main(["--sector", "light"])
+    main(["--sector", "broad"])
+    main(["--sector", "nucleon"])
+    main(["--sector", "heavy"])
