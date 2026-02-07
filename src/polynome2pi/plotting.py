@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Dict, List, Tuple
-import webbrowser
 
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
@@ -50,8 +49,3 @@ def plot_scan(
 
     fig.savefig(out_png, dpi=120)
     plt.close(fig)
-
-
-def open_file(path: Path) -> None:
-    # OS-independent: use default app / browser
-    webbrowser.open(path.resolve().as_uri())

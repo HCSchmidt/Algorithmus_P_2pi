@@ -5,12 +5,11 @@ import os
 from .cli import parse_args, ScanSector
 from .presets import preset_for_sector
 from .particles import get_particles  # dict[str, Particle]
-from .utils import open_image
 from .engine import ScanEngine
 from .energy_model import EnergyModel
 from .report import write_results_csv
 from .plotting import plot_scan
-
+from .utils import open_image
 from .sensitivity import run_sensitivity, write_sensitivity_csv, plot_sensitivity
 
 
@@ -74,7 +73,7 @@ def main(argv=None) -> int:
         )
 
         if not args.no_open:
-            open_image(str(png_path))
+            open_image(png_path)
 
         return 0
 
@@ -103,7 +102,7 @@ def main(argv=None) -> int:
     )
 
     if not args.no_open:
-        open_image(str(png_path))
+        open_image(png_path)
 
     return 0
 
