@@ -1,64 +1,106 @@
 from __future__ import annotations
 
 from pathlib import Path
-import time
 
-from .cli import parse_args
+from .cli import parse_args, ScanSector
 from .presets import preset_for_sector
-from .particles import get_particles
-from .energy_model import EnergyModel
+from .particles import get_particles  # dict[str, Particle]
+from .utils import get_results_dir, open_image
 from .engine import ScanEngine
+from .energy_model import EnergyModel
 from .report import write_results_csv
-from .plotting import plot_scan, open_file
+from .plotting import plot_scan
+
 from .sensitivity import run_sensitivity, write_sensitivity_csv, plot_sensitivity
+
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-    preset = preset_for_sector(args.sector)
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    
-    particles = get_particles()
+    sector: ScanSector = args.sector
 
-    if args.sensitivity:
-        rows = run_sensitivity(
-            sector=args.sector,
+    particles = get_particles()  # <-- wichtig: einmal holen, überall verwenden
+
+    results_dir: Path = get_results_dir()
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    preset = preset_for_sector(sector)
+
+    # ---------------------------
+    # Sensitivity mode
+    # ---------------------------
+    if args.command == "sensitivity":
+        eps = args.eps
+        steps = args.steps
+        particle_key = args.particle
+        hit_mode = args.hit_mode
+        if particle_key is not None and particle_key not in particles:
+            available = ", ".join(sorted(particles.keys()))
+            raise SystemExit(f"Unknown particle key '{particle_key}'. Available keys: {available}")
+
+        points = run_sensitivity(
             preset=preset,
             particles=particles,
-            eps=args.eps,
-            steps=args.steps,
+            particle_key=particle_key,
+            eps=float(eps),
+            steps=int(steps),
+            hit_mode=hit_mode,
         )
-        csv_path = out_dir / f"results_{preset.name}_sensitivity_eps_{args.eps}.csv"
-        png_path = out_dir / f"plot_{preset.name}_sensitivity_eps_{args.eps}.png"
 
-        write_sensitivity_csv(csv_path, rows)
-        plot_sensitivity(rows, png_path)
-        return
+        suffix = f"_{particle_key}" if particle_key else ""
+        csv_path = results_dir / f"sensitivity_{eps}_{sector.value}{suffix}.csv"
+        png_path = results_dir / f"sensitivity_{eps}_{sector.value}{suffix}.png"
 
+        # ✅ richtig: Sensitivity-CSV
+        write_sensitivity_csv(points, csv_path)
+
+        if particle_key:
+            y_left = "particle_hits"
+            y_right = "particle_hit_ratio"
+            title = f"Sensitivity – sector={sector.value}, particle={particle_key}"
+        else:
+            y_left = "real_ET"
+            y_right = "hit_ratio"
+            title = f"Sensitivity – sector={sector.value} (global)"
+
+        plot_sensitivity(
+            points,
+            png_path,
+            title=title,
+            y_left=y_left,
+            y_right=y_right,
+        )
+
+        if not args.no_open:
+            open_image(str(png_path))
+
+        return 0
+
+    # ---------------------------
+    # Normal scan mode
+    # ---------------------------
     model = EnergyModel()
-    engine = ScanEngine(preset, model)
+    engine = ScanEngine(preset=preset, model=model)
 
     outputs = engine.run(particles)
 
-    print(f"possible ET: {outputs.possible_ET}  real ET: {outputs.real_ET}")
+    base_name = f"scan_{sector.value}"
+    png_path = results_dir / f"{base_name}.png"
+    csv_path = results_dir / f"{base_name}.csv"
+    title=f"P(2π) scan – sector: {preset.name}",
+    plot_scan(out_png=png_path, particles=particles, matched_points=outputs.matched_points,
+              unmatched_segments=outputs.unmatched_segments,
+              title=title)
 
-    csv_path = out_dir / f"results_{preset.name}.csv"
-    png_path = out_dir / f"plot_{preset.name}.png"
-
-    write_results_csv(csv_path, preset.sector, particles, outputs.bins_by_particle)
-    plot_scan(
-        png_path,
-        particles,
-        outputs.matched_points,
-        outputs.unmatched_segments,
-        title=f"P(2π) scan – sector: {preset.name}",
+    # ✅ richtig: write_results_csv erwartet bins_by_particle, nicht outputs
+    write_results_csv(
+        path=csv_path,
+        sector=sector,
+        particles=particles,
+        bins_by_particle=outputs.bins_by_particle,
     )
 
-    print(f"Wrote CSV: {csv_path}")
-    print(f"Wrote PNG: {png_path}")
-
     if not args.no_open:
-        open_file(png_path)
+        open_image(str(png_path))
 
     return 0
 
