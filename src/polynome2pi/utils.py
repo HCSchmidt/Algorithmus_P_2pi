@@ -7,26 +7,6 @@ from pathlib import Path
 
 
 # ---------------------------
-# Results directory handling
-# ---------------------------
-
-def get_results_dir() -> Path:
-    """
-    Return the directory where all outputs (plots, CSVs) are stored.
-
-    Priority:
-      1) Environment variable POLYNOME2PI_RESULTS
-      2) ./results relative to project root
-    """
-    env = os.environ.get("POLYNOME2PI_RESULTS")
-    if env:
-        return Path(env).expanduser().resolve()
-
-    # default: project-local results directory
-    return Path("results").resolve()
-
-
-# ---------------------------
 # Cross-platform image opening
 # ---------------------------
 

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-
+import os
 from .cli import parse_args, ScanSector
 from .presets import preset_for_sector
 from .particles import get_particles  # dict[str, Particle]
-from .utils import get_results_dir, open_image
+from .utils import open_image
 from .engine import ScanEngine
 from .energy_model import EnergyModel
 from .report import write_results_csv
@@ -20,7 +20,10 @@ def main(argv=None) -> int:
 
     particles = get_particles()  # <-- wichtig: einmal holen, überall verwenden
 
-    results_dir: Path = get_results_dir()
+
+
+    
+    results_dir = Path(os.path.join("results", sector.value)).resolve()
     results_dir.mkdir(parents=True, exist_ok=True)
 
     preset = preset_for_sector(sector)
