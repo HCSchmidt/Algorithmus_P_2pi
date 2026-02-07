@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def init_result_arrays():
     D_i_N = [0.0] * 300
     D_i_c_ = [""] * 35

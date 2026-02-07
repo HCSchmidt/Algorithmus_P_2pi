@@ -22,6 +22,7 @@ class BinResult:
       - coefficients for min/max
       - number of times this bin occurred (counts)
     """
+
     m: int
     i_T_min: int
     i_T_max: int
@@ -183,7 +184,9 @@ class ScanEngine:
                                     # sector-specific cuts (legacy-like)
                                     if preset.sector.value == "heavy" and E0 < 1500:
                                         continue
-                                    if preset.sector.value == "nucleon" and (E0 < 1836 or E0 > 1839):
+                                    if preset.sector.value == "nucleon" and (
+                                        E0 < 1836 or E0 > 1839
+                                    ):
                                         continue
 
                                     i_T += 1
@@ -198,7 +201,9 @@ class ScanEngine:
                                     for pkey, acc in accumulators.items():
                                         p = acc.particle
                                         # allowing tolerance window around theory_E
-                                        if (E0 - p.theory_E) <= p.sd_plus and (E0 - p.theory_E) >= p.sd_minus:
+                                        if (E0 - p.theory_E) <= p.sd_plus and (
+                                            E0 - p.theory_E
+                                        ) >= p.sd_minus:
                                             matched_any = True
                                             real_ET += 1
 

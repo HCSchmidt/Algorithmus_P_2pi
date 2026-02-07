@@ -36,19 +36,12 @@ def parse_args(argv=None):
         metavar="{scan,sensitivity}",
     )
 
-    # -----------------
-    # scan command
-    # -----------------
     scan_p = sub.add_parser(
         "scan",
         parents=[parent],
         help="Run a normal scan and produce plot + CSV.",
     )
-    # (Optional: scan-specific args could go here)
 
-    # -----------------
-    # sensitivity command
-    # -----------------
     sens_p = sub.add_parser(
         "sensitivity",
         parents=[parent],

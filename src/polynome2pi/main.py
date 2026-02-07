@@ -17,19 +17,13 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     sector: ScanSector = args.sector
 
-    particles = get_particles()  # <-- wichtig: einmal holen, überall verwenden
+    particles = get_particles()
 
-
-
-    
     results_dir = Path(os.path.join("results", sector.value)).resolve()
     results_dir.mkdir(parents=True, exist_ok=True)
 
     preset = preset_for_sector(sector)
 
-    # ---------------------------
-    # Sensitivity mode
-    # ---------------------------
     if args.command == "sensitivity":
         eps = args.eps
         steps = args.steps
@@ -52,7 +46,6 @@ def main(argv=None) -> int:
         csv_path = results_dir / f"sensitivity_{eps}_{sector.value}{suffix}.csv"
         png_path = results_dir / f"sensitivity_{eps}_{sector.value}{suffix}.png"
 
-        # ✅ richtig: Sensitivity-CSV
         write_sensitivity_csv(points, csv_path)
 
         if particle_key:
@@ -88,12 +81,15 @@ def main(argv=None) -> int:
     base_name = f"scan_{sector.value}"
     png_path = results_dir / f"{base_name}.png"
     csv_path = results_dir / f"{base_name}.csv"
-    title=f"P(2π) scan – sector: {preset.name}",
-    plot_scan(out_png=png_path, particles=particles, matched_points=outputs.matched_points,
-              unmatched_segments=outputs.unmatched_segments,
-              title=title)
+    title = (f"P(2π) scan – sector: {preset.name}",)
+    plot_scan(
+        out_png=png_path,
+        particles=particles,
+        matched_points=outputs.matched_points,
+        unmatched_segments=outputs.unmatched_segments,
+        title=title,
+    )
 
-    # ✅ richtig: write_results_csv erwartet bins_by_particle, nicht outputs
     write_results_csv(
         path=csv_path,
         sector=sector,

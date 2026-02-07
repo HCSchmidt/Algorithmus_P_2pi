@@ -12,7 +12,8 @@ class EnergyModel:
     Sensitivity analysis: vary ONLY the base (2π) by a scale factor,
     while keeping π itself constant (so π^-k terms remain unchanged).
     """
-    base_scale: float = 1.0  # sensitivity knob; 1.0 matches legacy
+
+    base_scale: float = 1.0
 
     @property
     def pi(self) -> complex:
@@ -47,10 +48,10 @@ class EnergyModel:
             E0 = -C * E_C_neg
 
         # --- Gluon-like part (uses scaled 2π) ---
-        E2 = i4 * (two_pi ** 4) + i3 * (two_pi ** 3) + i2 * (two_pi ** 2)
+        E2 = i4 * (two_pi**4) + i3 * (two_pi**3) + i2 * (two_pi**2)
 
         # --- Fermion-like part (uses scaled 2π) ---
-        E1 = -(i1 * (two_pi ** 1) + i0 * (two_pi ** 0) + i_minus1 * (two_pi ** (-1)))
+        E1 = -(i1 * (two_pi**1) + i0 * (two_pi**0) + i_minus1 * (two_pi ** (-1)))
 
         # --- Interaction terms (uses scaled 2π) ---
         E3 = 0.0
@@ -85,11 +86,11 @@ class EnergyModel:
                 f[fi] = (n, 0.0)
                 break
 
-        for (l, gv) in g:
-            for (n, fv) in f:
+        for l, gv in g:
+            for n, fv in f:
                 if gv == 0 and fv == 0:
-                    E7 -= (two_pi ** (-l - n - 1))
-                    E7 -= (two_pi ** (-l - n))
+                    E7 -= two_pi ** (-l - n - 1)
+                    E7 -= two_pi ** (-l - n)
 
         E = E0 + E1 + E2 + E3 + E4 + E5 + E6 + E7
         return float(E.real)

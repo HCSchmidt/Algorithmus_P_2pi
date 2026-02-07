@@ -22,8 +22,8 @@ class SensitivityPoint:
 
     # optional per-particle metrics
     particle_key: Optional[str] = None
-    particle_hits: Optional[int] = None          # count of matched points (or delta sum, siehe unten)
-    particle_hit_ratio: Optional[float] = None   # particle_hits / possible_ET
+    particle_hits: Optional[int] = None  # count of matched points (or delta sum, siehe unten)
+    particle_hit_ratio: Optional[float] = None  # particle_hits / possible_ET
 
 
 def _particle_hits_from_outputs(outputs: ScanOutputs, particle_key: str, mode: str) -> int:

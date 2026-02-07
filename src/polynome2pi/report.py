@@ -60,35 +60,80 @@ def write_results_csv(
             rows = bins_by_particle.get(pkey, [])
             if not rows:
                 # still emit a summary row with no bins (helps downstream)
-                w.writerow([
-                    sector.value, p.key, p.name, p.symbol, p.theory_str, p.theory_E, p.sd_minus, p.sd_plus,
-                    "", "", "", "", "", "", "", "", "",  # bin fields
-                    "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",  # coeff fields
-                ])
+                w.writerow(
+                    [
+                        sector.value,
+                        p.key,
+                        p.name,
+                        p.symbol,
+                        p.theory_str,
+                        p.theory_E,
+                        p.sd_minus,
+                        p.sd_plus,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",  # bin fields
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",  # coeff fields
+                    ]
+                )
                 continue
 
             for r in rows:
                 (min_i4, min_i3, min_i2, min_i1, min_i0, min_im1, min_C) = r.coeff_min
                 (max_i4, max_i3, max_i2, max_i1, max_i0, max_im1, max_C) = r.coeff_max
 
-                w.writerow([
-                    sector.value,
-                    p.key,
-                    p.name,
-                    p.symbol,
-                    p.theory_str,
-                    p.theory_E,
-                    p.sd_minus,
-                    p.sd_plus,
-                    r.m,
-                    r.mean_E,
-                    r.E_min,
-                    r.E_max,
-                    r.i_T_min,
-                    r.i_T_max,
-                    r.delta_i,
-                    r.counts,
-                    r.delta_i_over_counts,
-                    min_i4, min_i3, min_i2, min_i1, min_i0, min_im1, min_C,
-                    max_i4, max_i3, max_i2, max_i1, max_i0, max_im1, max_C,
-                ])
+                w.writerow(
+                    [
+                        sector.value,
+                        p.key,
+                        p.name,
+                        p.symbol,
+                        p.theory_str,
+                        p.theory_E,
+                        p.sd_minus,
+                        p.sd_plus,
+                        r.m,
+                        r.mean_E,
+                        r.E_min,
+                        r.E_max,
+                        r.i_T_min,
+                        r.i_T_max,
+                        r.delta_i,
+                        r.counts,
+                        r.delta_i_over_counts,
+                        min_i4,
+                        min_i3,
+                        min_i2,
+                        min_i1,
+                        min_i0,
+                        min_im1,
+                        min_C,
+                        max_i4,
+                        max_i3,
+                        max_i2,
+                        max_i1,
+                        max_i0,
+                        max_im1,
+                        max_C,
+                    ]
+                )
