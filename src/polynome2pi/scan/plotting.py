@@ -108,9 +108,6 @@ def plot_match_grid(
     # reduce 3D -> 2D by summing over i2
     grid2 = grid3.sum(axis=2)  # shape (n_i4, n_i3)
 
-    i4_vals = outputs.grid_i4_values
-    i3_vals = outputs.grid_i3_values
-
     fig = plt.figure()
     ax = plt.gca()
 
@@ -124,12 +121,6 @@ def plot_match_grid(
     ax.set_title(title)
     ax.set_xlabel("i3")
     ax.set_ylabel("i4")
-
-    ax.set_xticks(range(len(i3_vals)))
-    ax.set_xticklabels(i3_vals)
-
-    ax.set_yticks(range(len(i4_vals)))
-    ax.set_yticklabels(i4_vals)
 
     cbar = plt.colorbar(im, ax=ax)
     cbar.set_label("hit count (summed over i2)")
@@ -187,8 +178,6 @@ def plot_match_grid_3d_scatter(
         fig.savefig(path, dpi=150, bbox_inches="tight")
         plt.close(fig)
         return
-    
-    
 
     gi4_idx, gi3_idx, gi2_idx = np.where(mask)
     counts = grid3[gi4_idx, gi3_idx, gi2_idx].astype(float)
@@ -209,43 +198,7 @@ def plot_match_grid_3d_scatter(
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
     
-    # Force ticks exactly on scanned integer grid values
-    ax.set_xticks(outputs.grid_i3_values)
-    ax.set_yticks(outputs.grid_i4_values)
-    ax.set_zticks(outputs.grid_i2_values)
-
-    ax.set_xlabel("i3")
-    ax.set_ylabel("i4")
-    ax.set_zlabel("i2")
-    
-        # axis limits exactly to scanned grid
-    ax.set_xlim(
-        min(outputs.grid_i3_values),
-        max(outputs.grid_i3_values),
-    )
-    ax.set_ylim(
-        min(outputs.grid_i4_values),
-        max(outputs.grid_i4_values),
-    )
-    ax.set_zlim(
-        min(outputs.grid_i2_values),
-        max(outputs.grid_i2_values),
-    )
-
-    # optional: force integer ticks
-    ax.set_xticks(outputs.grid_i3_values)
-    ax.set_yticks(outputs.grid_i4_values)
-    ax.set_zticks(outputs.grid_i2_values)
-
-    # ensure grid is visible
-    ax.grid(True)
-    
-    _draw_const_planes(
-    ax,
-    i4_vals=outputs.grid_i4_values,
-    i3_vals=outputs.grid_i3_values,
-    i2_vals=outputs.grid_i2_values,
-)
+    _draw_const_planes(ax, i4_vals, i3_vals, i2_vals, alpha=0.1, lw=0.5)
 
     sc = ax.scatter(
         x_i3,
@@ -265,9 +218,10 @@ def plot_match_grid_3d_scatter(
     ax.set_zlabel("i2")
 
     # optional: make ticks less crazy (only show actual scanned values)
-    ax.set_xticks(list(outputs.grid_i3_values))
-    ax.set_yticks(list(outputs.grid_i4_values))
-    ax.set_zticks(list(outputs.grid_i2_values))
+    ax.set_xlim(min(outputs.grid_i3_values), max(outputs.grid_i3_values))
+    ax.set_ylim(min(outputs.grid_i4_values), max(outputs.grid_i4_values))
+    ax.set_zlim(min(outputs.grid_i2_values), max(outputs.grid_i2_values))
+
 
     cbar = fig.colorbar(sc, ax=ax, shrink=0.75, pad=0.1)
     cbar.set_label("hit count per (i4,i3,i2) cell")
@@ -276,8 +230,7 @@ def plot_match_grid_3d_scatter(
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
-    
-    
+
 def _draw_const_planes(
     ax,
     i4_vals,
