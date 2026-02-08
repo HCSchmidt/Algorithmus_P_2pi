@@ -182,9 +182,9 @@ class ScanEngine:
         m_index = self._m_index
 
         # scan loop (mirrors legacy ranges)
-        for i4 in range(-2 * preset.J4, 2 * preset.J4 + 1):
-            for i3 in range(-2 * preset.J3, 2 * preset.J3 + 1):
-                for i2 in range(-2 * preset.J2, 2 * preset.J2 + 1):
+        for i4 in i4_values:
+            for i3 in i3_values:
+                for i2 in i2_values:
                     for i1 in range(-6, 7):
                         for i0 in range(-6, 7):
                             for i_minus1 in range(-6, 7):
