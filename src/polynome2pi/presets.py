@@ -14,14 +14,14 @@ class ScanPreset:
 
 
 def preset_for_sector(sector: ScanSector) -> ScanPreset:
-    if sector is ScanSector.minimal:
+    if sector is ScanSector.MINIMAL:
         return ScanPreset(sector, J4=0, J3=0, J2=1, name="minimal")
-    if sector is ScanSector.light:
+    if sector is ScanSector.LIGHT:
         return ScanPreset(sector, J4=0, J3=1, J2=1, name="light")
-    if sector is ScanSector.broad:
+    if sector is ScanSector.BROAD:
         return ScanPreset(sector, J4=1, J3=1, J2=2, name="broad")
-    if sector is ScanSector.nucleon:
+    if sector is ScanSector.NUCLEON:
         return ScanPreset(sector, J4=1, J3=1, J2=1, name="nucleon")
-    if sector is ScanSector.heavy:
+    if sector is ScanSector.HEAVY:
         return ScanPreset(sector, J4=2, J3=2, J2=2, name="heavy")
     raise ValueError(f"Unhandled sector: {sector}")

@@ -3,16 +3,16 @@ from enum import Enum
 
 
 class ScanSector(str, Enum):
-    minimal = "minimal"
-    light = "light"
-    broad = "broad"
-    nucleon = "nucleon"
-    heavy = "heavy"
+    MINIMAL = "minimal"
+    LIGHT = "light"
+    BROAD = "broad"
+    NUCLEON = "nucleon"
+    HEAVY = "heavy"
 
 
 class EvalulationType(str, Enum):
-    scan = "scan"
-    sensitivity = "sensitivity"
+    SCAN = "scan"
+    SENSITIVITY = "sensitivity"
 
 
 def parse_args(argv=None):
@@ -38,17 +38,17 @@ def parse_args(argv=None):
     sub = parser.add_subparsers(
         dest="command",
         required=True,
-        metavar=EvalulationType.scan.value + "|" + EvalulationType.sensitivity.value,
+        metavar=EvalulationType.SCAN.value + "|" + EvalulationType.SENSITIVITY.value,
     )
 
     scan_p = sub.add_parser(
-        EvalulationType.scan.value,
+        EvalulationType.SCAN.value,
         parents=[parent],
         help="Run a normal scan and produce plot + CSV.",
     )
 
     sens_p = sub.add_parser(
-        EvalulationType.sensitivity.value,
+        EvalulationType.SENSITIVITY.value,
         parents=[parent],
         help="Run sensitivity analysis by varying the base around 2π.",
     )
