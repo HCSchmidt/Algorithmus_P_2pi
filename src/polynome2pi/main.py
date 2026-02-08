@@ -33,12 +33,11 @@ def main(argv=None) -> int:
 
     if args.command == EvalulationType.SCAN:
 
-        png_path, png_grid_path, png_grid_3d_path = run_scan(sector, results_dir)
+        png_path, png_grid_path = run_scan(sector, results_dir)
 
         if not args.no_open:
             open_image(png_path)
             open_image(png_grid_path)
-            open_image(png_grid_3d_path)
         return 0
 
 
