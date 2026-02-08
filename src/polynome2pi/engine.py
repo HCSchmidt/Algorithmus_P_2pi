@@ -57,6 +57,13 @@ class ScanOutputs:
     # Global scan stats
     possible_ET: int
     real_ET: int
+    
+    grid_shape: Tuple[int, int, int]                 # (n_i4, n_i3, n_i2)
+    grid_i4_values: List[int]                        # actual i4 integer values scanned
+    grid_i3_values: List[int]
+    grid_i2_values: List[int]
+    any_match_grid: np.ndarray                       # shape (n_i4, n_i3, n_i2) counts of "matched_any"
+    particle_match_grids: Dict[str, np.ndarray]      # per particle matched count grid
 
 
 @dataclass
@@ -133,6 +140,21 @@ class ScanEngine:
     def run(self, particles: Dict[str, Particle]) -> ScanOutputs:
         preset = self.preset
         model = self.model
+        
+        i4_values = list(range(-2 * preset.J4, 2 * preset.J4 + 1))
+        i3_values = list(range(-2 * preset.J3, 2 * preset.J3 + 1))
+        i2_values = list(range(-2 * preset.J2, 2 * preset.J2 + 1))
+
+        n_i4 = len(i4_values)
+        n_i3 = len(i3_values)
+        n_i2 = len(i2_values)
+
+        i4_to_idx = {v: idx for idx, v in enumerate(i4_values)}
+        i3_to_idx = {v: idx for idx, v in enumerate(i3_values)}
+        i2_to_idx = {v: idx for idx, v in enumerate(i2_values)}
+
+        any_match_grid = np.zeros((n_i4, n_i3, n_i2), dtype=int)
+        particle_match_grids = {k: np.zeros((n_i4, n_i3, n_i2), dtype=int) for k in particles.keys()}
 
         # One accumulator per particle (replaces nested dicts and separate buffers)
         accumulators: Dict[str, ParticleAccumulator] = {
@@ -194,7 +216,12 @@ class ScanEngine:
                                     if 0 <= m < len(m_counts):
                                         m_counts[m] += 1
 
+                                    gi4 = i4_to_idx[i4]
+                                    gi3 = i3_to_idx[i3]
+                                    gi2 = i2_to_idx[i2]
                                     coeffs: Coeff7 = (i4, i3, i2, i1, i0, i_minus1, C)
+                                    matched_particles = []  # collect which particles matched
+
 
                                     # match against particles
                                     matched_any = False
@@ -205,6 +232,8 @@ class ScanEngine:
                                             E0 - p.theory_E
                                         ) >= p.sd_minus:
                                             matched_any = True
+                                            matched_particles.append(pkey)
+
                                             real_ET += 1
 
                                             acc.record_match(
@@ -215,7 +244,11 @@ class ScanEngine:
                                                 m_count=int(m_counts[m]),
                                             )
 
-                                    if not matched_any:
+                                    if matched_any:
+                                        any_match_grid[gi4, gi3, gi2] += 1
+                                        for pkey in matched_particles:
+                                            particle_match_grids[pkey][gi4, gi3, gi2] += 1
+                                    else:
                                         unmatched_segments.append(((i_T, E0), (i_T + 1, E0)))
 
         bins_by_particle: Dict[str, List[BinResult]] = {
@@ -232,4 +265,10 @@ class ScanEngine:
             bins_by_particle=bins_by_particle,
             possible_ET=i_T,  # comparable to legacy “possible ET” after cuts
             real_ET=real_ET,
+            grid_shape=(n_i4, n_i3, n_i2),
+            grid_i4_values=i4_values,
+            grid_i3_values=i3_values,
+            grid_i2_values=i2_values,
+            any_match_grid=any_match_grid,
+            particle_match_grids=particle_match_grids,
         )

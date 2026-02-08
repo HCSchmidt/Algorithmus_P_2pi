@@ -2,7 +2,7 @@ from polynome2pi.energy_model import EnergyModel
 from polynome2pi.engine import ScanEngine
 from polynome2pi.particles import get_particles
 from polynome2pi.presets import preset_for_sector
-from polynome2pi.scan.plotting import plot_scan
+from polynome2pi.scan.plotting import plot_scan, plot_match_grid
 from polynome2pi.scan.report import write_results_csv
 
 
@@ -32,5 +32,13 @@ def run_scan(sector, results_dir):
         particles=particles,
         bins_by_particle=outputs.bins_by_particle,
     )
+    
+    png_grid_path = results_dir / f"{base_name}_grid.png"
+    plot_match_grid(
+        outputs=outputs,
+        preset=preset,
+        particles=particles,
+        path=png_grid_path,
+    )
 
-    return png_path
+    return png_path, png_grid_path
