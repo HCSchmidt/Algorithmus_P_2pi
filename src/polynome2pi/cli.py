@@ -10,6 +10,11 @@ class ScanSector(str, Enum):
     heavy = "heavy"
 
 
+class EvalulationType(str, Enum):
+    scan = "scan"
+    sensitivity = "sensitivity"
+
+
 def parse_args(argv=None):
     # Parent parser for shared args
     parent = argparse.ArgumentParser(add_help=False)
@@ -33,17 +38,17 @@ def parse_args(argv=None):
     sub = parser.add_subparsers(
         dest="command",
         required=True,
-        metavar="{scan,sensitivity}",
+        metavar=EvalulationType.scan.value + "|" + EvalulationType.sensitivity.value,
     )
 
     scan_p = sub.add_parser(
-        "scan",
+        EvalulationType.scan.value,
         parents=[parent],
         help="Run a normal scan and produce plot + CSV.",
     )
 
     sens_p = sub.add_parser(
-        "sensitivity",
+        EvalulationType.sensitivity.value,
         parents=[parent],
         help="Run sensitivity analysis by varying the base around 2π.",
     )
