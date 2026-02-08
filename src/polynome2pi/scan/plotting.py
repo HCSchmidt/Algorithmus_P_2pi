@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 
-from .particles import Particle
+from ..particles import Particle
 
 
 colors = [

@@ -4,9 +4,9 @@ import csv
 from pathlib import Path
 from typing import Dict, List
 
-from .cli import ScanSector
-from .particles import Particle
-from .engine import BinResult
+from polynome2pi.cli import ScanSector
+from polynome2pi.particles import Particle
+from polynome2pi.engine import BinResult
 
 
 def write_results_csv(
