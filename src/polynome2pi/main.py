@@ -26,11 +26,20 @@ def main(argv=None):
     sector = args.sector
     config = select_preset_by_sector(sector)
     no_show = args.no_show
-
+    
+    Ch = 6                                                  #    für die Ladung evtl. zu gebrauchen
+    # parse_args(argvc).Charge
+    # = argvc; # argsc.Charge         
     # data
+
     Obj, obj_E, obj_min, obj_max = build_particle_table()
     D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin = init_result_arrays()
     xs_by_j, ys_by_j, grey_segments = init_plot_buffers()
+
+    Charge = [
+        ["1","2/3","1/3","0","-1/3","-2/3","-1","+-1"],       #für die Ladung 
+        [" 1 ","2 3","1 3"," 0 ","-1 3","-2 3","-1 ","+-1"],  # den Dateiname vom plot 
+       ]  
 
     # scan
     i_T, i_T1, _mmax = run_scan(
@@ -52,7 +61,7 @@ def main(argv=None):
     )
 
     # plot points (batched)
-    draw_points(xs_by_j, ys_by_j, grey_segments)
+    draw_points(xs_by_j, ys_by_j, grey_segments, Charge, Ch)      #  ergänzt um Charge
 
     # report + particle labels
     print("possible ET:", i_T, "real ET:", i_T1)
@@ -77,7 +86,9 @@ def main(argv=None):
     add_particle_labels(labels)
 
     # save/show
-    output_png = os.path.join(RESULTS_DIR, f"{config.name}.png")
+    # output_png = os.path.join(RESULTS_DIR, f"{config.name}.png")
+    output_png = os.path.join(RESULTS_DIR, f"{config.name+ " "+ Charge[1][Ch] + " "}.png")   # ergänzt um Charge
+
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
     fig.savefig(output_png, dpi=100)
@@ -90,4 +101,5 @@ def main(argv=None):
         open_image(output_png)
 
 if __name__ == "__main__":
+
     main()
