@@ -7,11 +7,20 @@ from ..cli import ScanSector
 from ..constants import get_colors
     
 
-def draw_points(xs_by_j, ys_by_j, grey_segments):
+#def draw_points(xs_by_j, ys_by_j, grey_segments):
+ #   colors = get_colors()
+  #  for j in range(1, 27):
+   #     if xs_by_j[j]:
+    #        plt.scatter(xs_by_j[j], ys_by_j[j], s=40, c=colors[j], marker=".", linewidths=0)
+
+def draw_points(xs_by_j, ys_by_j, grey_segments,Obj, Charge, Ch):                         #    um Charge ergänzt
     colors = get_colors()
     for j in range(1, 27):
-        if xs_by_j[j]:
-            plt.scatter(xs_by_j[j], ys_by_j[j], s=40, c=colors[j], marker=".", linewidths=0)
+        if Obj[j][6] == Charge[0][Ch]:  
+            print(Obj[j][6])
+            if xs_by_j[j]:    
+                plt.scatter(xs_by_j[j], ys_by_j[j], s=40, c=colors[j], marker=".", linewidths=0)
+
 
     if grey_segments:
         lc = LineCollection(grey_segments, colors="#6F6E6E", linewidths=2)
