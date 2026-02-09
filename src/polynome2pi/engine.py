@@ -58,14 +58,6 @@ class ScanOutputs:
     accepted_scan_points: int
     total_particle_hits: int
 
-    # Backwards-compatible aliases
-    @property
-    def possible_ET(self) -> int:  # legacy name
-        return self.accepted_scan_points
-
-    @property
-    def real_ET(self) -> int:  # legacy name
-        return self.total_particle_hits
     
     grid_shape: Tuple[int, int, int]                 # (n_i4, n_i3, n_i2)
     grid_i4_values: List[int]                        # actual i4 integer values scanned
