@@ -53,7 +53,7 @@ def write_results_csv(
     ]
 
     with path.open("w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, delimiter=";")
         w.writerow(headers)
 
         for pkey, p in particles.items():
