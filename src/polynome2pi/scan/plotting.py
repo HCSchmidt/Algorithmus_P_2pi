@@ -42,12 +42,14 @@ def plot_scan(
     particles: Dict[str, Particle],
     matched_points: Dict[str, Tuple[List[int], List[float]]],
     unmatched_segments: List[Tuple[Tuple[int, float], Tuple[int, float]]],
-    title: str,
+    sector_name: str,
 ) -> None:
     out_png.parent.mkdir(parents=True, exist_ok=True)
 
     fig = plt.gcf()
     fig.set_size_inches(10, 6)
+
+    title = (f"P(2π) scan: sector {sector_name}",)
 
     plt.title(title)
     plt.xlabel("Scan index N")
@@ -102,7 +104,7 @@ def plot_match_grid_3d_scatter(
     """
     if particle_key is None:
         grid3 = outputs.any_match_grid
-        title = f"3D Match-Grid (ANY) – sector={preset.sector.value}"
+        title = f"3D Match-Grid (ANY): sector{preset.sector.value}"
     else:
         if particle_key not in outputs.particle_match_grids:
             raise KeyError(f"Unknown particle_key '{particle_key}'.")

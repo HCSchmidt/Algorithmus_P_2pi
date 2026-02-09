@@ -3,11 +3,11 @@ from enum import Enum
 
 
 class ScanSector(str, Enum):
-    MINIMAL = "minimal"
-    LIGHT = "light"
-    BROAD = "broad"
-    NUCLEON = "nucleon"
-    HEAVY = "heavy"
+    MINIMAL = "001|u_d"
+    LIGHT = "011|u_d_s"
+    BROAD = "112|nucleon"
+    NUCLEON = "H-Atom"
+    HEAVY = "222|c_tau"
 
 
 class EvalulationType(str, Enum):

@@ -1,37 +1,12 @@
 #!/bin/sh
 
-polynome2pi sensitivity --sector minimal --eps 0.001
-polynome2pi sensitivity --sector minimal --eps 0.01
-polynome2pi sensitivity --sector minimal --eps 0.1
+polynome2pi scan --sector "001|u_d" 
+polynome2pi scan --sector "011|u_d_s" 
+polynome2pi scan --sector "112|nucleon" 
+polynome2pi scan --sector "H-Atom" 
+polynome2pi scan --sector "222|c_tau" 
 
-polynome2pi sensitivity --sector minimal --eps 0.001 --particle d
-polynome2pi sensitivity --sector minimal --eps 0.01 --particle d
-polynome2pi sensitivity --sector minimal --eps 0.1 --particle d
+polynome2pi sensitivity --sector "011|u_d_s" 
 
-polynome2pi sensitivity --sector minimal --eps 0.001 --particle u
-polynome2pi sensitivity --sector minimal --eps 0.01 --particle u
-polynome2pi sensitivity --sector minimal --eps 0.1 --particle u
-
-polynome2pi sensitivity --sector minimal --eps 0.001 --particle electron
-polynome2pi sensitivity --sector minimal --eps 0.01 --particle electron
-polynome2pi sensitivity --sector minimal --eps 0.1 --particle electron
-
-polynome2pi sensitivity --sector light --eps 0.001
-polynome2pi sensitivity --sector light --eps 0.01
-polynome2pi sensitivity --sector light --eps 0.1
-
-polynome2pi sensitivity --sector light --eps 0.001 --particle d
-polynome2pi sensitivity --sector light --eps 0.01 --particle d
-polynome2pi sensitivity --sector light --eps 0.1 --particle d
-
-polynome2pi sensitivity --sector light --eps 0.001 --particle u
-polynome2pi sensitivity --sector light --eps 0.01 --particle u
-polynome2pi sensitivity --sector light --eps 0.1 --particle u
-
-polynome2pi sensitivity --sector light --eps 0.001 --particle electron
-polynome2pi sensitivity --sector light --eps 0.01 --particle electron
-polynome2pi sensitivity --sector light --eps 0.1 --particle electron
-
-polynome2pi sensitivity --sector light --eps 0.001 --particle s
-polynome2pi sensitivity --sector light --eps 0.01 --particle s
-polynome2pi sensitivity --sector light --eps 0.1 --particle s
+polynome2pi sensitivity --sector "011|u_d_s" --particle u
+polynome2pi sensitivity --sector "011|u_d_s" --particle d

@@ -17,13 +17,12 @@ def run_scan(sector, results_dir):
     base_name = f"scan_{sector.value}"
     png_path = results_dir / f"{base_name}.png"
     csv_path = results_dir / f"{base_name}.csv"
-    title = (f"P(2π) scan – sector: {preset.name}",)
     plot_scan(
         out_png=png_path,
         particles=particles,
         matched_points=outputs.matched_points,
         unmatched_segments=outputs.unmatched_segments,
-        title=title,
+        sector_name=sector.value,
     )
 
     write_results_csv(
