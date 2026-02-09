@@ -55,8 +55,17 @@ class ScanOutputs:
     bins_by_particle: Dict[str, List[BinResult]]
 
     # Global scan stats
-    possible_ET: int
-    real_ET: int
+    accepted_scan_points: int
+    total_particle_hits: int
+
+    # Backwards-compatible aliases
+    @property
+    def possible_ET(self) -> int:  # legacy name
+        return self.accepted_scan_points
+
+    @property
+    def real_ET(self) -> int:  # legacy name
+        return self.total_particle_hits
     
     grid_shape: Tuple[int, int, int]                 # (n_i4, n_i3, n_i2)
     grid_i4_values: List[int]                        # actual i4 integer values scanned
@@ -173,9 +182,9 @@ class ScanEngine:
         # grey segments for unmatched scan points
         unmatched_segments: List[Tuple[Tuple[int, float], Tuple[int, float]]] = []
 
-        possible_ET = 0
-        real_ET = 0
-        i_T = 0  # scan index over accepted E0 >=0 combinations
+        total_combinations_evaluated = 0
+        total_particle_hits = 0
+        scan_index = 0  # index over accepted (E0>=0 and sector-cut) scan points
 
         # hot locals
         energy = model.energy
@@ -199,7 +208,7 @@ class ScanEngine:
                                         i_minus1 / 2,
                                         C / 2,
                                     )
-                                    possible_ET += 1
+                                    total_combinations_evaluated += 1
                                     if E0 < 0:
                                         continue
 
@@ -211,7 +220,7 @@ class ScanEngine:
                                     ):
                                         continue
 
-                                    i_T += 1
+                                    scan_index += 1
                                     m = m_index(i4, i3, i2)
                                     if 0 <= m < len(m_counts):
                                         m_counts[m] += 1
@@ -234,10 +243,10 @@ class ScanEngine:
                                             matched_any = True
                                             matched_particles.append(pkey)
 
-                                            real_ET += 1
+                                            total_particle_hits += 1
 
                                             acc.record_match(
-                                                i_T=i_T,
+                                                i_T=scan_index,
                                                 m=m,
                                                 E0=E0,
                                                 coeffs=coeffs,
@@ -249,7 +258,7 @@ class ScanEngine:
                                         for pkey in matched_particles:
                                             particle_match_grids[pkey][gi4, gi3, gi2] += 1
                                     else:
-                                        unmatched_segments.append(((i_T, E0), (i_T + 1, E0)))
+                                        unmatched_segments.append(((scan_index, E0), (scan_index + 1, E0)))
 
         bins_by_particle: Dict[str, List[BinResult]] = {
             key: acc.bins.values_sorted() for key, acc in accumulators.items()
@@ -263,8 +272,8 @@ class ScanEngine:
             matched_points=matched_points,
             unmatched_segments=unmatched_segments,
             bins_by_particle=bins_by_particle,
-            possible_ET=i_T,  # comparable to legacy “possible ET” after cuts
-            real_ET=real_ET,
+            accepted_scan_points=scan_index,  # comparable to legacy “possible ET” after cuts
+            total_particle_hits=total_particle_hits,
             grid_shape=(n_i4, n_i3, n_i2),
             grid_i4_values=i4_values,
             grid_i3_values=i3_values,

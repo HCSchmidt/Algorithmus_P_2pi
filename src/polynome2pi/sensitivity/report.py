@@ -15,8 +15,8 @@ def write_sensitivity_csv(points: List[SensitivityPoint], csv_path: Path) -> Non
         for p in points:
             f.write(
                 f"{p.base_scale:.8f},"
-                f"{p.possible_ET},"
-                f"{p.real_ET},"
+                f"{p.accepted_scan_points},"
+                f"{p.total_particle_hits},"
                 f"{p.hit_ratio:.10f},"
                 f"{p.particle_key or ''},"
                 f"{'' if p.particle_hits is None else p.particle_hits},"

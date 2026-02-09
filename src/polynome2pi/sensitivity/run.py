@@ -54,18 +54,18 @@ def run_sensitivity(
 
         outputs = engine.run(particles)
 
-        possible_ET = int(outputs.possible_ET) if outputs.possible_ET else 0
-        real_ET = int(outputs.real_ET)
-        hit_ratio = (real_ET / possible_ET) if possible_ET else 0.0
+        accepted_scan_points = int(outputs.accepted_scan_points) if outputs.accepted_scan_points else 0
+        total_particle_hits = int(outputs.total_particle_hits)
+        hit_ratio = (total_particle_hits / accepted_scan_points) if accepted_scan_points else 0.0
 
         if particle_key:
             phits = _particle_hits_from_outputs(outputs, particle_key, mode=hit_mode)
-            phit_ratio = (phits / possible_ET) if possible_ET else 0.0
+            phit_ratio = (phits / accepted_scan_points) if accepted_scan_points else 0.0
             points.append(
                 SensitivityPoint(
                     base_scale=float(s),
-                    possible_ET=possible_ET,
-                    real_ET=real_ET,
+                    accepted_scan_points=accepted_scan_points,
+                    total_particle_hits=total_particle_hits,
                     hit_ratio=hit_ratio,
                     particle_key=particle_key,
                     particle_hits=phits,
@@ -76,8 +76,8 @@ def run_sensitivity(
             points.append(
                 SensitivityPoint(
                     base_scale=float(s),
-                    possible_ET=possible_ET,
-                    real_ET=real_ET,
+                    accepted_scan_points=accepted_scan_points,
+                    total_particle_hits=total_particle_hits,
                     hit_ratio=hit_ratio,
                 )
             )
@@ -114,7 +114,7 @@ def evaluate_sensitivity(
         y_right = "particle_hit_ratio"
         title = f"Sensitivity – sector={sector.value}, particle={particle_key}"
     else:
-        y_left = "real_ET"
+        y_left = "total_particle_hits"
         y_right = "hit_ratio"
         title = f"Sensitivity – sector={sector.value} (global)"
 

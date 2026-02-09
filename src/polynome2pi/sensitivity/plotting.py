@@ -13,7 +13,7 @@ def plot_sensitivity(
     png_path: Path,
     *,
     title: str,
-    y_left: str = "real_ET",
+    y_left: str = "total_particle_hits",
     y_right: str = "hit_ratio",
 ) -> None:
     """
@@ -23,9 +23,10 @@ def plot_sensitivity(
     """
     xs = [p.base_scale for p in points]
 
-    if y_left == "real_ET":
-        y1 = [p.real_ET for p in points]
-        y1_label = "real_ET"
+    if y_left in ("real_ET", "total_particle_hits"):
+        # "real_ET" kept for backwards compatibility
+        y1 = [p.total_particle_hits for p in points]
+        y1_label = "total_particle_hits"
     elif y_left == "particle_hits":
         y1 = [p.particle_hits or 0 for p in points]
         y1_label = "particle_hits"

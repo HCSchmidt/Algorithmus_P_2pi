@@ -5,8 +5,8 @@ from typing import Optional
 @dataclass(frozen=True)
 class SensitivityPoint:
     base_scale: float
-    possible_ET: int
-    real_ET: int
+    accepted_scan_points: int
+    total_particle_hits: int
     hit_ratio: float
 
     # optional per-particle metrics
