@@ -8,7 +8,7 @@ class ScanSector(str, Enum):
     broad = "112 u d s Nukleon"
     nucleon = "111 H-Atom"
     heavy = "222 u d s c"
-    E112P = "112 E 1700
+    E112P = "112 E 1700"
 
 @dataclass
 class PolynomeConfig:
