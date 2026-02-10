@@ -7,7 +7,7 @@ from polynome2pi.main import main
 # =========================
 
 ARGS = [
-    "--sector", "broad"
+    "--sector", "E100"
     # "--no-show",
 ]
 
@@ -21,6 +21,7 @@ ARGSC = [
 # ARGS = ["--sector", "broad"]
 # ARGS = ["--sector", "heavy", "--base-name", "tau_scan"]
 # ARGS = ["--sector", "light"]
+# ARGS = ["--sector", "E100"]
 
 # =======================
 # USER CONFIGURATION END
