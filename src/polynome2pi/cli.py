@@ -3,12 +3,12 @@ from dataclasses import dataclass
 import argparse
 
 class ScanSector(str, Enum):
-    minimal = "minimal"
-    light = "light"
-    broad = "broad"
-    nucleon = "nucleon"
-    heavy = "heavy"
-
+    minimal = "001 u d"
+    light = "011 u d s"
+    broad = "112 u d s Nukleon"
+    nucleon = "111 H-Atom"
+    heavy = "222 u d s c"
+    E112P = "112 E 1700"
 
 @dataclass
 class PolynomeConfig:
@@ -62,5 +62,9 @@ def select_preset_by_sector(sector: ScanSector) -> PolynomeConfig:
 
     if sector is ScanSector.heavy:
         return PolynomeConfig(J4=2, J3=2, J2=2, add_info=sector.value)
+
+    if sector is ScanSector.E112P:
+        return PolynomeConfig(J4=1, J3=1, J2=2, add_info=sector.value)    
+
 
     raise ValueError(f"Unhandled sector: {sector}")

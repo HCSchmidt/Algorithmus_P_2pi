@@ -7,7 +7,7 @@ from polynome2pi.main import main
 # =========================
 
 ARGS = [
-    "--sector", "broad"
+    "--sector", "E112P"
     # "--no-show",
 ]
 
@@ -15,12 +15,13 @@ ARGSC = [
     "--Charge", "6",               #   Versuch  für  Argumente
 ]
 
-# Examples:
-# ARGS = ["--sector", "minimal"]
-# ARGS = ["--sector", "nucleon"]
-# ARGS = ["--sector", "broad"]
-# ARGS = ["--sector", "heavy", "--base-name", "tau_scan"]
-# ARGS = ["--sector", "light"]
+#class ScanSector(str, Enum):
+#    minimal = "001 u d"
+#    light = "011 u d s"
+#    broad = "112 u d s Nukleon"
+#    nucleon = "111 H-Atom"
+#    heavy = "222 u d s c"
+#    E112P = "112 E 1700"
 
 # =======================
 # USER CONFIGURATION END
@@ -29,23 +30,6 @@ ARGSC = [
 if __name__ == "__main__":
     print("Running with arguments:", ARGS)
     main(ARGS)
-
-
-#  Alex
-#  ich würde vorschlagen die
-#  die Sektoren umzubenennen amit es zum Paper passt 
-#
-#  minimal >> 001 u_d 
-#  light   >> 011 u_d_s 
-#  broad   >> 112 nucleon
-#  heavy   >> 222 c_tau
-#  nucleon >> 112 H-Atom 
-#
-#  In constants habe ich die Kategorie ergänzt, damit es übersichtlicher ist  
-#
-#  ich möchte die bitten auch eine text datei .txt dazuzufügen
-#  wo die events in 3 zeilen mit mean, min und max übereinander liegen 
-
 
 
 #  mir ist jetzt erst aufgefallen, dass die .csv  an manchen stellen z.B. pion 0 komischerweise

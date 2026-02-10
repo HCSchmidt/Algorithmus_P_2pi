@@ -37,9 +37,9 @@ def main(argv=None):
     xs_by_j, ys_by_j, grey_segments = init_plot_buffers()
 
     Charge = [
-        ["1","2/3","1/3","0","-1/3","-2/3","-1","+-1"],       #für die Ladung 
-        [" 1 ","2 3","1 3"," 0 ","-1 3","-2 3","-1 ","+-1"],  # den Dateiname vom plot 
-       ]  
+        ["1","2/3","1/3","0","-1/3","-2/3","-1","+-1","8","19"],       #für die Ladung 
+        [" 1 ","2 3","1 3"," 0 ","-1 3","-2 3","-1 ","+-1","8","19"],  # den Dateiname vom plot 
+       ]
 
     # scan
     i_T, i_T1, _mmax = run_scan(
@@ -103,4 +103,5 @@ def main(argv=None):
 if __name__ == "__main__":
 
     main()
+
 
