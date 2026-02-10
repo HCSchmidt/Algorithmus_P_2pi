@@ -29,6 +29,7 @@ def run_scan(
     
     is_heavy = (sector is ScanSector.heavy)
     is_nucleon = (sector is ScanSector.nucleon)
+    is_E100 = (sector is ScanSector.E100)
 
     i_T = 0
     i_T1 = 0
@@ -66,6 +67,8 @@ def run_scan(
                                 if is_heavy and E0 < 1500:
                                     continue
                                 if is_nucleon and (E0 < 1836 or E0 > 1839):
+                                    continue
+                                if is_E100 and E0 < 1700:
                                     continue
 
                                 i_T += 1
