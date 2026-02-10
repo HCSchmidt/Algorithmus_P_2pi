@@ -61,7 +61,7 @@ def main(argv=None):
     )
 
     # plot points (batched)
-    draw_points(xs_by_j, ys_by_j, grey_segments, Charge, Ch)      #  ergänzt um Charge
+    draw_points(xs_by_j, ys_by_j, grey_segments,Obj, Charge, Ch)      #  ergänzt um Charge
 
     # report + particle labels
     print("possible ET:", i_T, "real ET:", i_T1)
@@ -103,3 +103,4 @@ def main(argv=None):
 if __name__ == "__main__":
 
     main()
+
