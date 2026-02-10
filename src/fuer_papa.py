@@ -7,7 +7,7 @@ from polynome2pi.main import main
 # =========================
 
 ARGS = [
-    "--sector", "E100"
+    "--sector", "E112P"
     # "--no-show",
 ]
 
@@ -15,13 +15,13 @@ ARGSC = [
     "--Charge", "6",               #   Versuch  für  Argumente
 ]
 
-# Examples:
-# ARGS = ["--sector", "minimal"]
-# ARGS = ["--sector", "nucleon"]
-# ARGS = ["--sector", "broad"]
-# ARGS = ["--sector", "heavy", "--base-name", "tau_scan"]
-# ARGS = ["--sector", "light"]
-# ARGS = ["--sector", "E100"]
+#class ScanSector(str, Enum):
+#    minimal = "001 u d"
+#    light = "011 u d s"
+#    broad = "112 u d s Nukleon"
+#    nucleon = "111 H-Atom"
+#    heavy = "222 u d s c"
+#    E112P = "112 E 1700
 
 # =======================
 # USER CONFIGURATION END
