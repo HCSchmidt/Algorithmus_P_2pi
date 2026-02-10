@@ -8,7 +8,8 @@ class ScanSector(str, Enum):
     broad = "broad"
     nucleon = "nucleon"
     heavy = "heavy"
-
+    E100 = "E100"
+   # E100P = "E100 Proton"
 
 @dataclass
 class PolynomeConfig:
@@ -62,5 +63,9 @@ def select_preset_by_sector(sector: ScanSector) -> PolynomeConfig:
 
     if sector is ScanSector.heavy:
         return PolynomeConfig(J4=2, J3=2, J2=2, add_info=sector.value)
+
+    if sector is ScanSector.E100:
+        return PolynomeConfig(J4=1, J3=1, J2=2, add_info=sector.value)    
+
 
     raise ValueError(f"Unhandled sector: {sector}")
