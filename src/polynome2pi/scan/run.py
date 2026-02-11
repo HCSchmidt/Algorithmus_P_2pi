@@ -13,14 +13,19 @@ def run_scan(sector, charge_filter, results_dir):
     engine = ScanEngine(preset=preset, model=model)
     particles = get_particles()
 
-    particles_filtered = {}
-    for name, p in particles.items():
-        if p.charge in charge_filter:
-            particles_filtered[name] = p
+    if charge_filter is None:
+        particles_filtered = particles
+    else:
+        particles_filtered = {}
+        for name, p in particles.items():
+            if p.charge in charge_filter:
+                particles_filtered[name] = p
 
     outputs = engine.run(particles_filtered)
+    base_name = f"scan_{sector.value}"
+    if charge_filter:
+        base_name += f"_charge-{''.join(sorted(charge_filter))}"
 
-    base_name = f"scan_{sector.value}_charge{''.join(charge_filter)}"
     png_path = results_dir / f"{base_name}.png"
     txt_path = results_dir / f"{base_name}.txt"
     csv_path = results_dir / f"{base_name}.csv"
