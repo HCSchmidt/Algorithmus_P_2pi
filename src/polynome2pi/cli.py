@@ -30,6 +30,8 @@ def parse_args(argv=None):
         action="store_true",
         help="Do not open the generated PNG automatically.",
     )
+    
+    parent.add_argument("--charge-filter")
 
     parser = argparse.ArgumentParser(
         description="Scan P(2π) coefficient space and match particle energies."

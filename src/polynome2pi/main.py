@@ -32,8 +32,9 @@ def main(argv=None) -> int:
         return 0
 
     if args.command == EvalulationType.SCAN:
+        charge_filter = args.charge_filter if args.charge_filter else None
 
-        png_path, png_grid_path = run_scan(sector, results_dir)
+        png_path, png_grid_path = run_scan(sector, charge_filter, results_dir)
 
         if not args.no_open:
             open_image(png_path)
