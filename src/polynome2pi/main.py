@@ -1,46 +1,106 @@
-from __future__ import annotations
-
-from pathlib import Path
 import os
+import datetime
+from pathlib import Path
+import cmath
 
-from polynome2pi.sensitivity.run import evaluate_sensitivity
-from polynome2pi.scan.run import run_scan
-from .cli import parse_args, ScanSector, EvalulationType
+import numpy as np
+
+import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
+
+from .cli import ScanSector, PolynomeConfig, select_preset_by_sector, parse_args
+from .engine import run_scan
+from .constants import build_particle_table
+from .output.plotting import add_reference_lines, draw_points, add_legend_panels, add_particle_labels
+from .output.report import write_report
+from .output.config import RESULTS_DIR
+from .initialize import init_result_arrays, init_plot_buffers
 from .utils import open_image
 
+Path(RESULTS_DIR).mkdir(exist_ok=True)
 
-def main(argv=None) -> int:
+def main(argv=None):
+    start_time_stamp = datetime.datetime.now()
+
     args = parse_args(argv)
-    sector: ScanSector = args.sector
+    sector = args.sector
+    config = select_preset_by_sector(sector)
+    no_show = args.no_show
+    
+    Ch = 8 ; H = -1    # for no show H=18 else H = -1                                           #    für die Ladung evtl. zu gebrauchen
+    # parse_args(argvc).Charge
+    # = argvc; # argsc.Charge         
+    # data
 
-    results_dir = Path(os.path.join("results", sector.value)).resolve()
-    results_dir.mkdir(parents=True, exist_ok=True)
+    Obj, obj_E, obj_min, obj_max = build_particle_table()
+    D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin = init_result_arrays()
+    xs_by_j, ys_by_j, grey_segments = init_plot_buffers()
 
-    if args.command == EvalulationType.SENSITIVITY:
+    show_H = [H]    
+    Charge = [
+        ["1","2/3","1/3","0","-1/3","-2/3","-1","+-1"," ",18],       #für die Ladung 
+        [" 1 ","2 3","1 3"," 0 ","-1 3","-2 3","-1 ","+-1"," ","not H"]  # den Dateiname vom plot 
+       ]  
 
-        png_path = evaluate_sensitivity(
-            sector=sector,
-            eps=args.eps,
-            steps=args.steps,
-            particle_key=args.particle,
-            hit_mode=args.hit_mode,
-            results_dir=results_dir,
-        )
-        if not args.no_open:
-            open_image(png_path)
+    # scan
+    i_T, i_T1, _mmax = run_scan(
+        config=config,
+        sector=sector,
+        obj_E=obj_E,
+        obj_min=obj_min,
+        obj_max=obj_max,
+        Cnt=Cnt,
+        Emax=Emax,
+        Emin=Emin,
+        i_Emax=i_Emax,
+        i_Emin=i_Emin,
+        Dmax=Dmax,
+        Dmin=Dmin,
+        xs_by_j=xs_by_j,
+        ys_by_j=ys_by_j,
+        grey_segments=grey_segments,
+    )
 
-        return 0
+    # plot points (batched)
+    draw_points(xs_by_j, ys_by_j, grey_segments,Obj, Charge, Ch, show_H)      #  ergänzt um Charge
 
-    if args.command == EvalulationType.SCAN:
-        charge_filter = args.charge_filter if args.charge_filter else None
+    # report + particle labels
+    print("possible ET:", i_T, "real ET:", i_T1)
+    labels = write_report(
+        config.name,
+        sector=sector,
+        Obj=Obj,
+        D_i_N=D_i_N,
+        D_i_c_=D_i_c_,
+        Cnt=Cnt,
+        Emax=Emax,
+        Emin=Emin,
+        i_Emax=i_Emax,
+        i_Emin=i_Emin,
+        Dmax=Dmax,
+        Dmin=Dmin,
+    )
 
-        png_path, png_grid_path = run_scan(sector, charge_filter, results_dir)
+    # reference lines and legend panels
+    add_reference_lines(sector, i_T)
+    add_legend_panels(sector, i_T, Obj, i_Emax, D_i_c_)
+    add_particle_labels(labels)
 
-        if not args.no_open:
-            open_image(png_path)
-            open_image(png_grid_path)
-        return 0
+    # save/show
+    # output_png = os.path.join(RESULTS_DIR, f"{config.name}.png")
+    output_png = os.path.join(RESULTS_DIR, f"{config.name+ " "+ Charge[1][Ch] + " "+ str(show_H)}.png")   # ergänzt um Charge
 
+    fig = plt.gcf()
+    fig.set_size_inches(10, 6)
+    fig.savefig(output_png, dpi=100)
+
+    end_time_stamp = datetime.datetime.now()
+    delta = end_time_stamp - start_time_stamp
+    print(f"took {delta.seconds} seconds")
+
+    if not no_show:
+        open_image(output_png)
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+
+    main()

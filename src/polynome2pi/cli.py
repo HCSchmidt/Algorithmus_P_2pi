@@ -1,91 +1,69 @@
-import argparse
 from enum import Enum
-
+from dataclasses import dataclass
+import argparse
 
 class ScanSector(str, Enum):
-    MINIMAL = "001-u_d"
-    LIGHT = "011-u_d_s"
-    BROAD = "112-nucleon"
-    NUCLEON = "H-Atom"
-    HEAVY = "222-c_tau"
+    minimal = "001 u d"
+    light = "011 u d s"
+    broad = "112 u d s nucleon"
+    nucleon = "111 H-atom"
+    heavy = "222 u d s c"
+    E112P = "112 E above 1700"
 
+@dataclass
+class PolynomeConfig:
+    J4: int
+    J3: int
+    J2: int
+    add_info: str = ""
 
-class EvalulationType(str, Enum):
-    SCAN = "scan"
-    SENSITIVITY = "sensitivity"
+    @property
+    def name(self) -> str:
+        suffix = f"_{self.add_info}" if self.add_info else ""
+        return f"Polynom_{self.J4}{self.J3}{self.J2}{suffix}"
 
 
 def parse_args(argv=None):
-    # Parent parser for shared args
-    parent = argparse.ArgumentParser(add_help=False)
-    parent.add_argument(
+    parser = argparse.ArgumentParser(description="Run P(2π) polynomial scan and plot results")
+
+    parser.add_argument(
         "--sector",
         type=ScanSector,
         choices=list(ScanSector),
         required=True,
-        help="Scan sector (preset).",
-    )
-    parent.add_argument(
-        "--no-open",
-        action="store_true",
-        help="Do not open the generated PNG automatically.",
-    )
-    
-    parent.add_argument("--charge-filter")
-
-    parser = argparse.ArgumentParser(
-        description="Scan P(2π) coefficient space and match particle energies."
-    )
-
-    sub = parser.add_subparsers(
-        dest="command",
-        required=True,
-        metavar=EvalulationType.SCAN.value + "|" + EvalulationType.SENSITIVITY.value,
-    )
-
-    scan_p = sub.add_parser(
-        EvalulationType.SCAN.value,
-        parents=[parent],
-        help="Run a normal scan and produce plot + CSV.",
-    )
-
-    sens_p = sub.add_parser(
-        EvalulationType.SENSITIVITY.value,
-        parents=[parent],
-        help="Run sensitivity analysis by varying the base around 2π.",
-    )
-
-    sens_p.add_argument(
-        "--eps",
-        type=float,
-        default=0.001,
-        help="Relative variation around 2π (±eps). Default: 0.001 (±0.1%%).",
-    )
-
-    sens_p.add_argument(
-        "--steps",
-        type=int,
-        default=21,
-        help="Number of base samples in the sensitivity sweep. Default: 21.",
-    )
-
-    sens_p.add_argument(
-        "--particle",
-        type=str,
-        default=None,
-        help="If set, run sensitivity for a single particle key (e.g. 'muon', 'proton', 'pion_0', ...).",
-    )
-
-    sens_p.add_argument(
-        "--hit-mode",
-        type=str,
-        default="matched_points",
-        choices=["matched_points", "delta_sum"],
         help=(
-            "How to count particle hits for sensitivity. "
-            "'matched_points' = number of matched scan points; "
-            "'delta_sum' = sum of delta_i over bins (more legacy-like)."
+            "Physical scan sector (polynomial depth). "
+            f"Must be one of: {', '.join([e.value for e in ScanSector])}."
         ),
     )
 
+    parser.add_argument(
+        "--no-show",
+        action="store_true",
+        help="Do not open a GUI window; still save the PNG output",
+    )
+
+
     return parser.parse_args(argv)
+
+
+def select_preset_by_sector(sector: ScanSector) -> PolynomeConfig:
+    if sector is ScanSector.minimal:
+        return PolynomeConfig(J4=0, J3=0, J2=1, add_info=sector.value)
+
+    if sector is ScanSector.light:
+        return PolynomeConfig(J4=0, J3=1, J2=1, add_info=sector.value)
+
+    if sector is ScanSector.broad:
+        return PolynomeConfig(J4=1, J3=1, J2=2, add_info=sector.value)
+
+    if sector is ScanSector.nucleon:
+        return PolynomeConfig(J4=1, J3=1, J2=1, add_info=sector.value)
+
+    if sector is ScanSector.heavy:
+        return PolynomeConfig(J4=2, J3=2, J2=2, add_info=sector.value)
+    
+    if sector is ScanSector.E112P:
+        return PolynomeConfig(J4=1, J3=1, J2=2, add_info=sector.value)    
+
+    raise ValueError(f"Unhandled sector: {sector}")
