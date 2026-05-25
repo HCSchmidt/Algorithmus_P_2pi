@@ -1,14 +1,16 @@
 from polynome2pi.main import main
 # =========================
 # CONFIGURATION START
+#
+# !!!! To open a .csv file: UNICODE UTF-8 and delimiter: comma  !!!
 # =========================
 #    Selection of the experiment
 Exp = [ "000 u d", "012 u d s", "112 u d s nucleon",
       "111 H-atom", "112 E > 1700", "222 u d s c",
-      "333 E > 1700", "333 E < 2000",  
+      "333 E > 1700", "333 E < 2000", "222 u d s c E < 3000",
     ]
 ARGS = [
-        "--sector", Exp[6]
+        "--sector", Exp[1]
     ]
 # select Charge  [" ","1","2/3","1/3","0","-1/3","-2/3","-1","+-1"] 
 ARGC = [
