@@ -60,7 +60,7 @@ def run_scan(
                             i_1h = 0.5 * i_1
                             for C in range(-2, 3):
                                 Ch = 0.5 * C 
-                                mmax, PE = energie(i4h, i3h, i2h, i1h, i0h, i_1h, Ch)
+                                PE = energie(i4h, i3h, i2h, i1h, i0h, i_1h, Ch)
                                 E0 = E_local[0]
                                 if E0 < 0: continue
                                 m = int(512 + 64 * i4 + 8 * i3 + i2)
@@ -229,9 +229,7 @@ class PolynomeEngine:
         E1 = g2[4] * self.POW_L_4 + g2[3] * self.POW_L_3 + g2[2] * self.POW_L_2;
         E2 = -(g1[1] * self.POW_N_1 + g1[0] * self.POW_N_0 + g1[-1] * self.POW_N_M1)
         PE3=""; PE4=""; PE5=""; PE6=""; PE7=""
-       # PE1 = str(g2[4]) + "(2π)^4 + " + str(g2[3]) + "(2π)^3 + " + str(g2[2]) + "(2π)^2"
         PE1 = f"{g2[4]} (2π)^4 + {g2[3]}(2π)^3 + {g2[2]}(2π)^2 "
-       # PE1 = " - (" + str(g1[1]) + "(2π)^1 + " + str(g1[0]) + "(2π)^0 + " + str(g1[-1]) + "(2π)^-1)"
         PE2 = f" -({g1[1]} (2π)^1 + {g1[0]}(2π)^0 + {g1[-1]}(2π)^-1) "
         E3 = 0.0
         E4 = 0.0
@@ -267,7 +265,7 @@ class PolynomeEngine:
                     break
 
                 if gl == 0 and gn == 0:
-                    E7 -= self.POW_LN_M1_ONLY[li][ni];   PE7 += f" - (2π)^({-li-ni-1}) "  # PE7 = " - (2π)^"+str(-li-ni-1) 
+                    E7 -= self.POW_LN_M1_ONLY[li][ni];   PE7 += f" - (2π)^({-li-ni-1}) "  
                     E7 -= self.POW_LN_0_ONLY[li][ni];    PE7 += f" - (2π)^({-li-ni}) " 
                     break
 
@@ -284,4 +282,4 @@ class PolynomeEngine:
         E[6] = E6
         E[7] = E7
 
-        return total, PE 
+        return PE 
