@@ -1,275 +1,287 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Dict, List, Tuple
-
-import numpy as np
-
-from .particles import Particle
-from .presets import ScanPreset
-from .energy_model import EnergyModel
-
-
-Coeff7 = Tuple[int, int, int, int, int, int, int]  # i4,i3,i2,i1,i0,i-1,C
-
-
-@dataclass
-class BinResult:
-    """
-    One 'm-bin' match segment for a particle:
-      - where we saw it first/last (i_T indices)
-      - min/max energy within that bin
-      - coefficients for min/max
-      - number of times this bin occurred (counts)
-    """
-
-    m: int
-    i_T_min: int
-    i_T_max: int
-    E_min: float
-    E_max: float
-    coeff_min: Coeff7
-    coeff_max: Coeff7
-    counts: int
-
-    @property
-    def delta_i(self) -> int:
-        return self.i_T_max - self.i_T_min + 1
-
-    @property
-    def mean_E(self) -> float:
-        return (self.E_min + self.E_max) / 2.0
-
-    @property
-    def delta_i_over_counts(self) -> float:
-        return (self.delta_i / self.counts) if self.counts else 0.0
-
-
-@dataclass
-class ScanOutputs:
-    # For plotting (batched)
-    matched_points: Dict[str, Tuple[List[int], List[float]]]  # particle_key -> (xs, ys)
-    unmatched_segments: List[Tuple[Tuple[int, float], Tuple[int, float]]]  # grey segments
-
-    # Results
-    bins_by_particle: Dict[str, List[BinResult]]
-
-    # Global scan stats
-    accepted_scan_points: int
-    total_particle_hits: int
-
+import cmath
+from .cli import ScanSector, PolynomeConfig
+def run_scan(
+    *,
+    config: PolynomeConfig,
+    sector: ScanSector,
+    obj_E,
+    obj_min,
+    obj_max,
+    Cnt,
+    Emax,
+    Emin,
+    i_Emax,
+    i_Emin,
+    Dmax,
+    Dmin,
+    PEmax,
+    PEmin,
+    xs_by_j,
+    ys_by_j,
+    grey_segments,
+    N_segments,
+    data,
+):
     
-    grid_shape: Tuple[int, int, int]                 # (n_i4, n_i3, n_i2)
-    grid_i4_values: List[int]                        # actual i4 integer values scanned
-    grid_i3_values: List[int]
-    grid_i2_values: List[int]
-    any_match_grid: np.ndarray                       # shape (n_i4, n_i3, n_i2) counts of "matched_any"
-    particle_match_grids: Dict[str, np.ndarray]      # per particle matched count grid
+    """
+    Executes the nested scan loops. Returns (i_T, i_T1, mmax).
+    Mutates the provided arrays/buffers.
+    """
+    engine = PolynomeEngine()
+    energie = engine.energie
+    E_local = engine.E
+    
+    is_heavy = (sector is ScanSector.heavy)
+    is_nucleon = (sector is ScanSector.nucleon)
+    is_E112P = (sector is ScanSector.E112P)
+    is_E333U = (sector is ScanSector.E333U)
+    is_E333D = (sector is ScanSector.E333D)
+    is_E222 = (sector is ScanSector.E222)
 
+    PE = ""
+    i_T = 0
+    i_T1 = 0
+    mmax = 0
+    ct = 0
+    pi = cmath.pi ; E1700= (2 * pi)**4 +(2 * pi)**2+ (2 * pi)**1; 
 
-@dataclass
-class BinStore:
-    """Small wrapper around per-particle m-bin results with clear intent."""
+    for i4 in range(-2 * config.J4, 2 * config.J4 + 1):
+        i4h = 0.5 * i4
+        for i3 in range(-2 * config.J3, 2 * config.J3 + 1):
+            i3h = 0.5 * i3
+            for i2 in range (-2 * config.J2, 2 * config.J2 + 1):    #(-4,5):  #
+                i2h = 0.5 * i2
 
-    _by_m: Dict[int, BinResult]
+                for i1 in range (-6, 7):#
+                    i1h = 0.5 * i1
+                    for i0 in range(-6, 7):   #
+                        i0h = 0.5 * i0
+                        for i_1 in range(-6, 7):   #
+                            i_1h = 0.5 * i_1
+                            for C in range(-2, 3):
+                                Ch = 0.5 * C 
+                                mmax, PE = energie(i4h, i3h, i2h, i1h, i0h, i_1h, Ch)
+                                E0 = E_local[0]
+                                if E0 < 0: continue
+                                m = int(512 + 64 * i4 + 8 * i3 + i2)
+                                if m > mmax:
+                                    mmax = m
+                                    ct = 0
+                                ct += 1
+                                Cnt[mmax] = ct
 
-    def get(self, m: int) -> BinResult | None:
-        return self._by_m.get(m)
+                                if is_E333U and E0 < 1700: continue
+                                if is_E112P and E0 < E1700: continue                                
+                                if is_E333D and E0 > 2000: continue 
+                                if is_E222 and E0 > 3000: continue 
+                                if is_nucleon and (E0 < 1830 or E0 > 1843): continue
+                                
+                                i_T += 1
+                                N_= 10*(abs(i4h)*16 + abs(i3h)*8 + abs(i2h)*4 + abs(i1h)*2 + abs(i0h) + abs(i_1h)/2)
+                                #N_= 20*(abs(i4h) + abs(i3h) + abs(i2h) + abs(i1h) + abs(i0h) + abs(i_1h))
+                                N_segments.append([(i_T, N_), (i_T + 1, N_)])
+                                flag_match = 0
 
-    def upsert(self, m: int, i_T: int, E0: float, coeffs: Coeff7, m_count: int) -> None:
-        current = self._by_m.get(m)
-        if current is None:
-            self._by_m[m] = BinResult(
-                m=m,
-                i_T_min=i_T,
-                i_T_max=i_T,
-                E_min=E0,
-                E_max=E0,
-                coeff_min=coeffs,
-                coeff_max=coeffs,
-                counts=int(m_count),
-            )
-            return
+                                for j in range(1, 29):
+                                    Ej = obj_E[j]
+                                    if (E0 - Ej <= obj_max[j]) and (E0 - Ej >= obj_min[j]):
+                                        i_T1 += 1
 
-        # keep first/last occurrence in i_T
-        current.i_T_min = min(current.i_T_min, i_T)
-        current.i_T_max = max(current.i_T_max, i_T)
+                                        if Emax[j, m] <= E0:
+                                            Emax[j, m] = E0
+                                            i_Emax[j, m] = i_T
+                                            Dmax[j, m, 0] = i4
+                                            Dmax[j, m, 1] = i3
+                                            Dmax[j, m, 2] = i2
+                                            Dmax[j, m, 3] = i1
+                                            Dmax[j, m, 4] = i0
+                                            Dmax[j, m, 5] = i_1
+                                            Dmax[j, m, 6] = C
+                                            PEmax[j][m] = PE
 
-        # update min/max energy and coeffs
-        if E0 <= current.E_min or current.E_min == 0:
-            current.E_min = E0
-            current.coeff_min = coeffs
-        if E0 >= current.E_max:
-            current.E_max = E0
-            current.coeff_max = coeffs
+                                        if Emin[j, m] >= E0 or Emin[j, m] == 0:
+                                            Emin[j, m] = E0
+                                            i_Emin[j, m] = i_T
+                                            Dmin[j, m, 0] = i4
+                                            Dmin[j, m, 1] = i3
+                                            Dmin[j, m, 2] = i2
+                                            Dmin[j, m, 3] = i1
+                                            Dmin[j, m, 4] = i0
+                                            Dmin[j, m, 5] = i_1
+                                            Dmin[j, m, 6] = C
+                                            PEmin[j][m] = PE
 
-        # update counts
-        current.counts = int(m_count)
+                                        xs_by_j[j].append(i_T)
+                                        ys_by_j[j].append(E0)
+                                        flag_match = 1
+                                        data.append([i_T, E0 , j])
+                                        
 
-    def values_sorted(self) -> List[BinResult]:
-        return sorted(self._by_m.values(), key=lambda r: r.m)
+                                if E0 > 0 and flag_match == 0:
+                                    grey_segments.append([(i_T, E0), (i_T + 1, E0)])
+                                    data.append([i_T, E0 , 0])
+                                    
+    return i_T, i_T1, mmax
+class PolynomeEngine:
+    """
+    Owns all precomputed constants and all scratch state used by energie().
+    This eliminates globals while preserving performance (scratch reused).
+    """
+    def __init__(self, pow_off: int = 40):
+        self.pi = cmath.pi
+        self.two_pi = 2 * self.pi
+        self.pow_off = pow_off
 
+        # Precompute powers (2π)^k into a list for fast indexing
+        self.two_pi_pow = [0.0] * (2 * pow_off + 1)
+        for k in range(-pow_off, pow_off + 1):
+            self.two_pi_pow[k + pow_off] = self.two_pi ** k
 
-@dataclass
-class ParticleAccumulator:
-    """All scan outputs we collect for one particle."""
-
-    particle: Particle
-    bins: BinStore
-    xs: List[int]
-    ys: List[float]
-
-    def record_match(self, i_T: int, m: int, E0: float, coeffs: Coeff7, m_count: int) -> None:
-        # Plot buffers
-        self.xs.append(i_T)
-        self.ys.append(E0)
-
-        # Result bins
-        self.bins.upsert(m=m, i_T=i_T, E0=E0, coeffs=coeffs, m_count=m_count)
-
-
-class ScanEngine:
-    def __init__(self, preset: ScanPreset, model: EnergyModel):
-        self.preset = preset
-        self.model = model
-
-    @staticmethod
-    def _m_index(i4: int, i3: int, i2: int) -> int:
-        # legacy mapping
-        return int(256 + 32 * i4 + 4 * i3 + i2)
-
-    def run(self, particles: Dict[str, Particle]) -> ScanOutputs:
-        preset = self.preset
-        model = self.model
-        
-        i4_values = list(range(-2 * preset.J4, 2 * preset.J4 + 1))
-        i3_values = list(range(-2 * preset.J3, 2 * preset.J3 + 1))
-        i2_values = list(range(-2 * preset.J2, 2 * preset.J2 + 1))
-
-        n_i4 = len(i4_values)
-        n_i3 = len(i3_values)
-        n_i2 = len(i2_values)
-
-        i4_to_idx = {v: idx for idx, v in enumerate(i4_values)}
-        i3_to_idx = {v: idx for idx, v in enumerate(i3_values)}
-        i2_to_idx = {v: idx for idx, v in enumerate(i2_values)}
-
-        any_match_grid = np.zeros((n_i4, n_i3, n_i2), dtype=int)
-        particle_match_grids = {k: np.zeros((n_i4, n_i3, n_i2), dtype=int) for k in particles.keys()}
-
-        # One accumulator per particle (replaces nested dicts and separate buffers)
-        accumulators: Dict[str, ParticleAccumulator] = {
-            key: ParticleAccumulator(
-                particle=p,
-                bins=BinStore(_by_m={}),
-                xs=[],
-                ys=[],
-            )
-            for key, p in particles.items()
-        }
-
-        # counts per m (legacy used Cnt[mmax], here: counts per m directly)
-        m_counts = np.zeros(520, dtype=int)
-
-        # grey segments for unmatched scan points
-        unmatched_segments: List[Tuple[Tuple[int, float], Tuple[int, float]]] = []
-
-        total_combinations_evaluated = 0
-        total_particle_hits = 0
-        scan_index = 0  # index over accepted (E0>=0 and sector-cut) scan points
-
-        # hot locals
-        energy = model.energy
-        m_index = self._m_index
-
-        # scan loop (mirrors legacy ranges)
-        for i4 in i4_values:
-            for i3 in i3_values:
-                for i2 in i2_values:
-                    for i1 in range(-6, 7):
-                        for i0 in range(-6, 7):
-                            for i_minus1 in range(-6, 7):
-                                for C in range(-2, 3):
-                                    # legacy uses halves
-                                    E0 = energy(
-                                        i4 / 2,
-                                        i3 / 2,
-                                        i2 / 2,
-                                        i1 / 2,
-                                        i0 / 2,
-                                        i_minus1 / 2,
-                                        C / 2,
-                                    )
-                                    total_combinations_evaluated += 1
-                                    if E0 < 0:
-                                        continue
-
-                                    # sector-specific cuts (legacy-like)
-                                    if preset.sector.value == "heavy" and E0 < 1500:
-                                        continue
-                                    if preset.sector.value == "nucleon" and (
-                                        E0 < 1836 or E0 > 1839
-                                    ):
-                                        continue
-
-                                    scan_index += 1
-                                    m = m_index(i4, i3, i2)
-                                    if 0 <= m < len(m_counts):
-                                        m_counts[m] += 1
-
-                                    gi4 = i4_to_idx[i4]
-                                    gi3 = i3_to_idx[i3]
-                                    gi2 = i2_to_idx[i2]
-                                    coeffs: Coeff7 = (i4, i3, i2, i1, i0, i_minus1, C)
-                                    matched_particles = []  # collect which particles matched
-
-
-                                    # match against particles
-                                    matched_any = False
-                                    for pkey, acc in accumulators.items():
-                                        p = acc.particle
-                                        # allowing tolerance window around theory_E
-                                        if (E0 - p.theory_E) <= p.sd_plus and (
-                                            E0 - p.theory_E
-                                        ) >= p.sd_minus:
-                                            matched_any = True
-                                            matched_particles.append(pkey)
-
-                                            total_particle_hits += 1
-
-                                            acc.record_match(
-                                                i_T=scan_index,
-                                                m=m,
-                                                E0=E0,
-                                                coeffs=coeffs,
-                                                m_count=int(m_counts[m]),
-                                            )
-
-                                    if matched_any:
-                                        any_match_grid[gi4, gi3, gi2] += 1
-                                        for pkey in matched_particles:
-                                            particle_match_grids[pkey][gi4, gi3, gi2] += 1
-                                    else:
-                                        unmatched_segments.append(((scan_index, E0), (scan_index + 1, E0)))
-
-        bins_by_particle: Dict[str, List[BinResult]] = {
-            key: acc.bins.values_sorted() for key, acc in accumulators.items()
-        }
-
-        matched_points: Dict[str, Tuple[List[int], List[float]]] = {
-            key: (acc.xs, acc.ys) for key, acc in accumulators.items()
-        }
-
-        return ScanOutputs(
-            matched_points=matched_points,
-            unmatched_segments=unmatched_segments,
-            bins_by_particle=bins_by_particle,
-            accepted_scan_points=scan_index,  # comparable to legacy “possible ET” after cuts
-            total_particle_hits=total_particle_hits,
-            grid_shape=(n_i4, n_i3, n_i2),
-            grid_i4_values=i4_values,
-            grid_i3_values=i3_values,
-            grid_i2_values=i2_values,
-            any_match_grid=any_match_grid,
-            particle_match_grids=particle_match_grids,
+        # C-dependent constants
+        pi = self.pi
+        self.E_C_POS = (
+            -pi
+            + 2 * pi ** (-1)
+            - pi ** (-3)
+            + 2 * pi ** (-5)
+            - pi ** (-7)
+            + pi ** (-9)
+            - pi ** (-12)
+            - 2 * pi ** (-14)
         )
+
+        self.E_C_NEG = 2 * pi - pi ** (-1) + self.E_C_POS
+        self.E_C_ZERO = pi ** (-12) + 2 * pi ** (-14)
+
+        # Scratch state (reused; no per-call allocations)
+        self.E = [0.0] * 10
+        self.g = [[0.0] * 10 for _ in range(10)]  # no aliasing
+
+        # Hot precomputations for energie()
+        off = self.pow_off
+        p = self.two_pi_pow
+
+       
+        # (2π)^l for l in {4,3,2}
+        self.POW_L_4 = p[4 + off]; 
+        self.POW_L_3 = p[3 + off]; 
+        self.POW_L_2 = p[2 + off]; 
+        
+        # (2π)^n for n in {1,0,-1}
+        self.POW_N_1 = p[1 + off]; 
+        self.POW_N_0 = p[0 + off]; 
+        self.POW_N_M1 = p[-1 + off]; 
+
+        # 2*(2π)^(-8) constant used in E6
+        self.POW_NEG8_2 = 2.0 * p[-8 + off]; 
+
+        # Precompute 9 combos for -l-n-1 and -l-n
+        LS = (4, 3, 2)
+        NS = (1, 0, -1)
+
+        # include factor 2 for E3/E4/E5 terms
+        self.POW_LN_M1 = [[0.0] * 3 for _ in range(3)]      # 2*(2π)^(-l-n-1)
+        self.POW_LN_0 = [[0.0] * 3 for _ in range(3)]       # 2*(2π)^(-l-n)
+
+        # exclude factor 2 for E7
+        self.POW_LN_M1_ONLY = [[0.0] * 3 for _ in range(3)] # (2π)^(-l-n-1)
+        self.POW_LN_0_ONLY = [[0.0] * 3 for _ in range(3)]  # (2π)^(-l-n)
+
+        for li, l in enumerate(LS):
+            for ni, n in enumerate(NS):
+                self.POW_LN_M1[li][ni] = 2.0 * p[-l - n - 1 + off]
+                self.POW_LN_0[li][ni] = 2.0 * p[-l - n + off]
+                self.POW_LN_M1_ONLY[li][ni] = p[-l - n - 1 + off]
+                self.POW_LN_0_ONLY[li][ni] = p[-l - n + off]
+
+    def energie(self, i4, i3, i2, i1, i0, i_1, C):
+        """
+        Behavior-identical to the original Energie() nested-loop logic,
+        but faster due to:
+          - indexed pow tables (no dict)
+          - local accumulators, fewer list writes
+          - precomputed constants for the 9 (l,n) combos
+        """
+        g2 = self.g[2]
+        g1 = self.g[1]
+
+        # set inputs
+        g2[4] = i4
+        g2[3] = i3
+        g2[2] = i2
+        g1[1] = i1
+        g1[0] = i0
+        g1[-1] = i_1
+
+        # C-dependent base term
+        PE0_POS = " (- π + 2π^-1 - π^-3 + 2π^-5 - π^-7 + π^-9 - π^-12 - 2π^-14) "
+        PE0_NEG = " (π + π^-1 - π^-3 + 2π^-5 - π^-7 + π^-9 - π^-12 - 2π^-14) "
+        PE0_ZERO = " (+ π^-12 + 2π^-14)"
+        
+        if C > 0:
+            E0 = C * self.E_C_POS;  PE0 = " + " + str(C) + PE0_POS
+        elif C < 0:
+            E0 = -C * self.E_C_NEG; PE0 = " + " + str(-C) + PE0_NEG
+        else:
+            E0 = self.E_C_ZERO;  PE0 = " + " + PE0_ZERO
+        
+        # gluons and fermions
+        E1 = g2[4] * self.POW_L_4 + g2[3] * self.POW_L_3 + g2[2] * self.POW_L_2;
+        E2 = -(g1[1] * self.POW_N_1 + g1[0] * self.POW_N_0 + g1[-1] * self.POW_N_M1)
+        PE3=""; PE4=""; PE5=""; PE6=""; PE7=""
+       # PE1 = str(g2[4]) + "(2π)^4 + " + str(g2[3]) + "(2π)^3 + " + str(g2[2]) + "(2π)^2"
+        PE1 = f"{g2[4]} (2π)^4 + {g2[3]}(2π)^3 + {g2[2]}(2π)^2 "
+       # PE1 = " - (" + str(g1[1]) + "(2π)^1 + " + str(g1[0]) + "(2π)^0 + " + str(g1[-1]) + "(2π)^-1)"
+        PE2 = f" -({g1[1]} (2π)^1 + {g1[0]}(2π)^0 + {g1[-1]}(2π)^-1) "
+        E3 = 0.0
+        E4 = 0.0
+        E5 = 0.0
+        E6 = 0.0
+        E7 = 0.0
+
+#        if i4 == 0 and i3 == 1 and i3 == 0:  print(E0, i4, i3, i2, i1, i0, i_1) 
+
+        # exact original loop/break semantics
+        for li, l in enumerate((4, 3, 2)):
+            for ni, n in enumerate((1, 0, -1)):
+                gl = g2[l]
+                gn = g1[n]
+
+                if gl != 0 and gn != 0:
+                    ln = l + n
+
+                    if ln < 4:
+                        if gl > 0:
+                            E3 += gl * gn * self.POW_LN_M1[li][ni];  PE3 += f" + {gl*gn}*2(2π)^({-li-ni-1}) "  # PE3 += " + " + str(gl*gn) + "* 2(2π)^"+str(-li-ni-1)
+                        else:
+                            E4 += gl * gn * self.POW_LN_0[li][ni];   PE4 += f" + {gl*gn}*2(2π)^({-li-ni}) "
+
+                    if ln > 3:
+                        E5 -= gl * gn * self.POW_LN_M1[li][ni];      PE5 += f" - {gl*gn}*2(2π)^({-li-ni-1}) "  # PE5 += " + " + str(-gl*gn) + "* 2(2π)^"+str(-li-ni-1)
+
+                    prod = gl * gn
+                    E6 += (prod if prod >= 0 else -prod) * self.POW_NEG8_2; PE6 += f" + {abs(gl*gn)}*2(2π)^(-8) "  #PE6 += " + " + str(abs(prod)) + "* 2(2π)^-8"
+ 
+                    g2[l] = 0
+                    g1[n] = 0
+                    break
+
+                if gl == 0 and gn == 0:
+                    E7 -= self.POW_LN_M1_ONLY[li][ni];   PE7 += f" - (2π)^({-li-ni-1}) "  # PE7 = " - (2π)^"+str(-li-ni-1) 
+                    E7 -= self.POW_LN_0_ONLY[li][ni];    PE7 += f" - (2π)^({-li-ni}) " 
+                    break
+
+        total = E0 + E1 + E2 + E3 + E4 + E5 + E6 + E7;   PE = PE1 + PE2 + PE3 + PE4 + PE5 + PE6 + PE7 + PE0
+
+        # preserve side-effects (main loop reads E[0])
+        E = self.E
+        E[0] = total
+        E[1] = E1
+        E[2] = E2
+        E[3] = E3
+        E[4] = E4
+        E[5] = E5
+        E[6] = E6
+        E[7] = E7
+
+        return total, PE 
