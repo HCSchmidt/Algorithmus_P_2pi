@@ -1,46 +1,110 @@
-from __future__ import annotations
-
-from pathlib import Path
 import os
+import datetime
+from pathlib import Path
+import matplotlib.pyplot as plt
 
-from polynome2pi.sensitivity.run import evaluate_sensitivity
-from polynome2pi.scan.run import run_scan
-from .cli import parse_args, ScanSector, EvalulationType
+from .cli import ScanSector, PolynomeConfig, select_preset_by_sector, parse_args
+from .engine import run_scan
+from .constants import build_particle_table
+from .output.plotting import add_reference_lines, draw_points, add_particle_labels
+from .output.report import write_report
+from .output.config import RESULTS_DIR
+from .initialize import init_result_arrays, init_plot_buffers
 from .utils import open_image
+from .output.legend import add_legend_panels
 
+Path(RESULTS_DIR).mkdir(exist_ok=True)
 
-def main(argv=None) -> int:
+def main(argv=None, argC=None, argH=None, argV=None):
+    start_time_stamp = datetime.datetime.now()
+
     args = parse_args(argv)
-    sector: ScanSector = args.sector
+    sector = args.sector
+    config = select_preset_by_sector(sector)
+    no_show = args.no_show
 
-    results_dir = Path(os.path.join("results", sector.value)).resolve()
-    results_dir.mkdir(parents=True, exist_ok=True)
+    Charge = [
+        [" ","1","2/3","1/3","0","-1/3","-2/3","-1","+-1"],       #für die Ladung 
+        [" "," 1 ","2 3","1 3"," 0 ","-1 3","-2 3","-1 ","+-1"," "]    # den Dateiname vom plot 
+    ]                                       
+    for c in range(0,8):
+        if Charge[0][c] == argC[1]: Ch = c
 
-    if args.command == EvalulationType.SENSITIVITY:
+    show_H = -1; show_N = -1;                # H = argH[1]   # Atom with or without electrons
+    if not argH[1] == "H": show_H = 18
+    if not argH[2] == "N": show_N = 19       # and not j == show_H and not j == show_N
+  
+    Obj, obj_E, obj_min, obj_max = build_particle_table()
+    D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin, PEmax, PEmin = init_result_arrays()
+    xs_by_j, ys_by_j, grey_segments, N_segments, data = init_plot_buffers() 
 
-        png_path = evaluate_sensitivity(
-            sector=sector,
-            eps=args.eps,
-            steps=args.steps,
-            particle_key=args.particle,
-            hit_mode=args.hit_mode,
-            results_dir=results_dir,
-        )
-        if not args.no_open:
-            open_image(png_path)
+    i_T, i_T1, mmax = run_scan(
+        config=config,
+        sector=sector,
+        obj_E=obj_E,
+        obj_min=obj_min,
+        obj_max=obj_max,
+        Cnt=Cnt,
+        Emax=Emax,
+        Emin=Emin,
+        i_Emax=i_Emax,
+        i_Emin=i_Emin,
+        Dmax=Dmax,
+        Dmin=Dmin,
+        PEmax=PEmax,
+        PEmin=PEmin,
+        xs_by_j=xs_by_j,
+        ys_by_j=ys_by_j,
+        grey_segments=grey_segments,
+        N_segments=N_segments,
+        data=data
+    )
 
-        return 0
+    # report + particle labels
+    print("possible ET:", i_T, "real ET:", i_T1)
+    labels = write_report(
+        config.name,
+        sector=sector,
+        Obj=Obj,
+        D_i_N=D_i_N,
+        D_i_c_=D_i_c_,
+        Cnt=Cnt,
+        Emax=Emax,
+        Emin=Emin,
+        i_Emax=i_Emax,
+        i_Emin=i_Emin,
+        Dmax=Dmax,
+        Dmin=Dmin,
+        PEmax=PEmax,
+        PEmin=PEmin,
+    )
 
-    if args.command == EvalulationType.SCAN:
-        charge_filter = args.charge_filter if args.charge_filter else None
+    # plot points (batched)
+    draw_points(xs_by_j, ys_by_j, grey_segments, N_segments, Obj, Charge, Ch, show_H, show_N)      #  ergänzt um Charge
+    add_reference_lines(sector, i_T)
+    add_particle_labels(labels)
 
-        png_path, png_grid_path = run_scan(sector, charge_filter, results_dir)
+    output_png = os.path.join(RESULTS_DIR, f"{config.name+ "_"+ Charge[1][Ch] + "_"+ str(show_H)}.png")   # ergänzt um Charge
 
-        if not args.no_open:
-            open_image(png_path)
-            open_image(png_grid_path)
-        return 0
+    # reference lines and legend panels
+    fig = plt.gcf(); 
+    fig.set_size_inches(10, 6)
+    if config.name == "E333": fig.set_size_inches(20, 12)        
+    fig.savefig(output_png, dpi=200)
+    open_image(output_png)
 
+    #     Legende
+    add_legend_panels(Obj, i_Emax, D_i_c_)
+    fig = plt.gcf(); 
+    output_png = os.path.join(RESULTS_DIR, f"{config.name +"_legend" }.png")   
+    fig.savefig(output_png, dpi=100)
+    open_image(output_png)
+
+    end_time_stamp = datetime.datetime.now()
+    delta = end_time_stamp - start_time_stamp
+    print(f"took {delta.seconds} seconds")
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+
+    main()
+
