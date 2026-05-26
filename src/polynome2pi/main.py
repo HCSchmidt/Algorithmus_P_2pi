@@ -35,7 +35,7 @@ def main(argv=None, argC=None, argH=None, argV=None):
     if not argH[2] == "N": show_N = 19       # and not j == show_H and not j == show_N
   
     Obj, obj_E, obj_min, obj_max = build_particle_table()
-    D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin, PEmax, PEmin = init_result_arrays()
+    D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin = init_result_arrays()
     xs_by_j, ys_by_j, grey_segments, N_segments, data = init_plot_buffers() 
 
     i_T, i_T1, mmax = run_scan(
@@ -51,8 +51,6 @@ def main(argv=None, argC=None, argH=None, argV=None):
         i_Emin=i_Emin,
         Dmax=Dmax,
         Dmin=Dmin,
-        PEmax=PEmax,
-        PEmin=PEmin,
         xs_by_j=xs_by_j,
         ys_by_j=ys_by_j,
         grey_segments=grey_segments,
@@ -75,8 +73,6 @@ def main(argv=None, argC=None, argH=None, argV=None):
         i_Emin=i_Emin,
         Dmax=Dmax,
         Dmin=Dmin,
-        PEmax=PEmax,
-        PEmin=PEmin,
     )
 
     # plot points (batched)
