@@ -14,8 +14,6 @@ def run_scan(
     i_Emin,
     Dmax,
     Dmin,
-    PEmax,
-    PEmin,
     xs_by_j,
     ys_by_j,
     grey_segments,
@@ -97,8 +95,7 @@ def run_scan(
                                             Dmax[j, m, 4] = i0
                                             Dmax[j, m, 5] = i_1
                                             Dmax[j, m, 6] = C
-                                            PEmax[j][m] = E_local[8]
-
+  
                                         if Emin[j, m] >= E0 or Emin[j, m] == 0:
                                             Emin[j, m] = E0
                                             i_Emin[j, m] = i_T
@@ -109,7 +106,6 @@ def run_scan(
                                             Dmin[j, m, 4] = i0
                                             Dmin[j, m, 5] = i_1
                                             Dmin[j, m, 6] = C
-                                            PEmin[j][m] = E_local[8]
 
                                         xs_by_j[j].append(i_T)
                                         ys_by_j[j].append(E0)
@@ -153,10 +149,6 @@ class PolynomeEngine:
         self.E_C_NEG = 2 * pi - pi ** (-1) + self.E_C_POS
         self.E_C_ZERO = pi ** (-12) + 2 * pi ** (-14)
 
-        self.PE_C_POS = " (- π + 2π^-1 - π^-3 + 2π^-5 - π^-7 + π^-9 - π^-12 - 2π^-14) "
-        self.PE_C_NEG = " (π + π^-1 - π^-3 + 2π^-5 - π^-7 + π^-9 - π^-12 - 2π^-14) "
-        self.PE_C_ZERO = " (+ π^-12 + 2π^-14)"
-
         # Scratch state (reused; no per-call allocations)
         self.E = [0.0] * 10
         self.g = [[0.0] * 10 for _ in range(10)]  # no aliasing
@@ -164,7 +156,6 @@ class PolynomeEngine:
         # Hot precomputations for energie()
         off = self.pow_off
         p = self.two_pi_pow
-
        
         # (2π)^l for l in {4,3,2}
         self.POW_L_4 = p[4 + off]; 
@@ -220,11 +211,11 @@ class PolynomeEngine:
         # C-dependent base term
         
         if C > 0:
-            E0 = C * self.E_C_POS;   PE0 = f" + {C}" + self.PE_C_POS
+            E0 = C * self.E_C_POS;   
         elif C < 0:
-            E0 = -C * self.E_C_NEG;  PE0 = f" + {-C}" + self.PE_C_NEG
+            E0 = -C * self.E_C_NEG;  
         else:
-            E0 = self.E_C_ZERO;      PE0 = " + " + self.PE_C_ZERO
+            E0 = self.E_C_ZERO;     
         
         # gluons and fermions
         E1 = g2[4] * self.POW_L_4 + g2[3] * self.POW_L_3 + g2[2] * self.POW_L_2;
@@ -234,11 +225,6 @@ class PolynomeEngine:
         E5 = 0.0
         E6 = 0.0
         E7 = 0.0
-        PE1 = f"{g2[4]} (2π)^4 + {g2[3]}(2π)^3 + {g2[2]}(2π)^2 "
-        PE2 = f" - ({g1[1]} (2π)^1 + {g1[0]}(2π)^0 + {g1[-1]}(2π)^-1) "
-        PE3 = ""; PE4 = ""; PE5 = ""; PE6 = ""; PE7 = ""
-
-#        if i4 == 0 and i3 == 1 and i3 == 0:  print(E0, i4, i3, i2, i1, i0, i_1) 
 
         # exact original loop/break semantics
         for li, l in enumerate((4, 3, 2)):
@@ -251,26 +237,26 @@ class PolynomeEngine:
 
                     if ln < 4:
                         if gl > 0:
-                            E3 += gl * gn * self.POW_LN_M1[li][ni];  PE3 += f" + {gl*gn}*2(2π)^({-li-ni-1}) "  # PE3 += " + " + str(gl*gn) + "* 2(2π)^"+str(-li-ni-1)
+                            E3 += gl * gn * self.POW_LN_M1[li][ni]
                         else:
-                            E4 += gl * gn * self.POW_LN_0[li][ni];   PE4 += f" + {gl*gn}*2(2π)^({-li-ni}) "
+                            E4 += gl * gn * self.POW_LN_0[li][ni]
 
                     if ln > 3:
-                        E5 -= gl * gn * self.POW_LN_M1[li][ni];      PE5 += f" - {gl*gn}*2(2π)^({-li-ni-1}) "  # PE5 += " + " + str(-gl*gn) + "* 2(2π)^"+str(-li-ni-1)
+                        E5 -= gl * gn * self.POW_LN_M1[li][ni]
 
                     prod = gl * gn
-                    E6 += (prod if prod >= 0 else -prod) * self.POW_NEG8_2; PE6 += f" + {abs(gl*gn)}*2(2π)^(-8) "  #PE6 += " + " + str(abs(prod)) + "* 2(2π)^-8"
+                    E6 += (prod if prod >= 0 else -prod) * self.POW_NEG8_2
  
                     g2[l] = 0
                     g1[n] = 0
                     break
 
                 if gl == 0 and gn == 0:
-                    E7 -= self.POW_LN_M1_ONLY[li][ni];   PE7 += f" - (2π)^({-li-ni-1}) " 
-                    E7 -= self.POW_LN_0_ONLY[li][ni];    PE7 += f" - (2π)^({-li-ni}) " 
+                    E7 -= self.POW_LN_M1_ONLY[li][ni]
+                    E7 -= self.POW_LN_0_ONLY[li][ni]
                     break
 
-        total = E0 + E1 + E2 + E3 + E4 + E5 + E6 + E7;   PE = PE1 + PE2 + PE3 + PE4 + PE5 + PE6 + PE7 + PE0
+        total = E0 + E1 + E2 + E3 + E4 + E5 + E6 + E7
 
         # preserve side-effects (main loop reads E[0])
         E = self.E 
@@ -282,15 +268,5 @@ class PolynomeEngine:
         E[5] = E5
         E[6] = E6
         E[7] = E7
-        E[8] = PE
-        P = self.P
-        P[0] = PE
-        P[1] = PE1
-        P[2] = PE2
-        P[3] = PE3
-        P[4] = PE4
-        P[5] = PE5
-        P[6] = PE6
-        P[7] = PE7
 
-       return total
+        return total
