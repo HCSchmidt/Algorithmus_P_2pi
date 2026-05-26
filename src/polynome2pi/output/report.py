@@ -18,8 +18,6 @@ def write_report(
     i_Emin,
     Dmax,
     Dmin,
-    PEmax,
-    PEmin,
 ):
     """
     Writes a single CSV file mirroring the old TXT table structure.   
@@ -121,7 +119,16 @@ def write_report(
             if not labeled_this_particle:
                 labels.append((sector, j, i_Emin[j, m], E_mean_val, Obj[j][9], colors[j]))
                 labeled_this_particle = True
- 
+
+            i4= Dmax[j, m, 0] / 2
+            i3= Dmax[j, m, 1] / 2
+            i2= Dmax[j, m, 2] / 2
+            i1= Dmax[j, m, 3] / 2
+            i0= Dmax[j, m, 4] / 2
+            i_1= Dmax[j, m, 5] / 2
+            C= Dmax[j, m, 6] / 2
+            PE = energie(i4, i3, i2, i1, i0, i_1, C)
+
             # max row
             rows.append({
                 "particle": "",
@@ -139,7 +146,7 @@ def write_report(
                 "cts": "",
                 "di_over_2pi_percent": "",
                 "note": "",
-                "Polynom": PEmax[j][m] 
+                "Polynom": PE 
             })
 
             # mean row
@@ -162,6 +169,14 @@ def write_report(
                 "Polynom": ""
             })
 
+            i4= Dmin[j, m, 0] / 2
+            i3= Dmin[j, m, 1] / 2
+            i2= Dmin[j, m, 2] / 2
+            i1= Dmin[j, m, 3] / 2
+            i0= Dmin[j, m, 4] / 2
+            i_1= Dmin[j, m, 5] / 2
+            C= Dmin[j, m, 6] / 2
+            PE = energie(i4, i3, i2, i1, i0, i_1, C)
             # min row
             rows.append({
                 "particle": "",
@@ -179,7 +194,7 @@ def write_report(
                 "cts": "",
                 "di_over_2pi_percent": "",
                 "note": "",
-                "Polynom": PEmin[j][m] 
+                "Polynom": PE 
             })
 
             # delta row
@@ -206,14 +221,6 @@ def write_report(
         if j > 1 and i_Emax[j, 1026] > 0:
             D_i_c_tot = round(float(i_Emax[j, 0]) * 100 / i_Emax[j, 1026], 5)
             D_i_c_[j] = f"{D_i_c_tot} %"
-
-            for d in range(0,7):
-                P= str(Dmin[j, m__max, 0]/2) + "(2 pi)^4 + "
-                P += str(Dmin[j, m__max, 1]/2) + "(2 pi)^3 + "
-                P += str(Dmin[j, m__max, 2]/2) + "(2 pi)^2 + "
-                P += "("+ str(-Dmin[j, m__max, 3]/2) + " + " + str(-Dmin[j, m__max, 6]/2) +") (2 pi)^1 + "
-                P += str(-Dmin[j, m__max, 4]/2) + " + "
-                P += "(" + str(-Dmin[j, m__max, 5]/2) + " + " + str(Dmin[j, m__max, 6]) + ") (2 pi)^-1 "
 
             rows.append({
                 "particle": "",
@@ -283,3 +290,57 @@ def write_report(
             writer.writerows(rows)
 
     return labels
+
+
+def energie(i4, i3, i2, i1, i0, i_1, C):
+    g2 = [0.0] * 5
+    g1 = [0.0] * 5
+    g2[4] = i4
+    g2[3] = i3
+    g2[2] = i2
+    g1[1] = i1
+    g1[0] = i0
+    g1[-1] = i_1
+
+    if C > 0:
+        PE0 = f" + {C} (- π + 2π^-1 - π^-3 + 2π^-5 - π^-7 + π^-9 - π^-12 - 2π^-14) "
+    elif C < 0:
+        PE0 = f" + {-C} (π + π^-1 - π^-3 + 2π^-5 - π^-7 + π^-9 - π^-12 - 2π^-14) "
+    else:
+        PE0 = " +  π^-12 + 2π^-14"
+
+    PE1 = f"{g2[4]} (2π)^4 + {g2[3]}(2π)^3 + {g2[2]}(2π)^2 "
+    PE2 = f" - ({g1[1]} (2π)^1 + {g1[0]}(2π)^0 + {g1[-1]}(2π)^-1) "
+    PE3 = ""; PE4 = ""; PE5 = ""; PE6 = ""; PE7 = ""
+
+    for li, l in enumerate((4, 3, 2)):
+        for ni, n in enumerate((1, 0, -1)):
+            gl = g2[l]
+            gn = g1[n]
+
+            if gl != 0 and gn != 0:
+                ln = l + n
+
+                if ln < 4:
+                    if gl > 0:
+                        PE3 += f" + {gl*gn}*2(2π)^({-l-n-1}) "  
+                    else:
+                        PE4 += f" + {gl*gn}*2(2π)^({-l-n}) "
+
+                if ln > 3:
+                    PE5 += f" - {gl*gn}*2(2π)^({-l-n-1}) "  
+
+                PE6 += f" + {abs(gl*gn)}*2(2π)^(-8) " 
+ 
+                g2[l] = 0
+                g1[n] = 0
+                break
+
+            if gl == 0 and gn == 0:
+                PE7 += f" - (2π)^({-l-n-1}) " 
+                PE7 += f" - (2π)^({-l-n}) " 
+                break
+
+    PE = PE1 + PE2 + PE3 + PE4 + PE5 + PE6 + PE7 + PE0
+
+    return PE
