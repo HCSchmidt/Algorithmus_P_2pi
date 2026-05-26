@@ -11,9 +11,7 @@ def init_result_arrays():
     i_Emin = np.zeros((35, 1030), dtype=int)
     Dmax = np.zeros((35, 1030, 7), dtype=int)
     Dmin = np.zeros((35, 1030, 7), dtype=int)
-    PEmax = [[""] * 1030] * 35
-    PEmin = [[""] * 1030] * 35
-    return D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin, PEmax, PEmin
+    return D_i_N, D_i_c_, Cnt, Emax, Emin, i_Emax, i_Emin, Dmax, Dmin
 
 def init_plot_buffers():
     xs_by_j = [[] for _ in range(29)]
