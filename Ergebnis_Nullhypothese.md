@@ -147,8 +147,54 @@ Daher kommt der Test mit den nicht eingebauten Teilchen (Abschnitt 5). Auch das 
 
 Das ist das typische Bild einer angepassten Formel: Sie stimmt dort perfekt, wo sie angepasst wurde, und trifft sonst nur im Rahmen des Zufalls.
 
+## 10. Wie wahrscheinlich ist es, dass doch etwas dran ist?
+
+Kurz gesagt: **sehr unwahrscheinlich.** Dass diese Formel einen echten physikalischen Zusammenhang beschreibt, halte ich für deutlich unter 1 %, eher im Promille-Bereich. Das ist eine Einschätzung, keine berechnete Zahl.
+
+### Was dagegen spricht
+
+**1. Die Daten liefern keinen Beleg.** Das ist der wichtigste Punkt. Eine Theorie gewinnt an Glaubwürdigkeit, wenn sie etwas trifft, das sie ohne echten Zusammenhang nicht treffen würde. Hier passiert genau das Gegenteil:
+
+- Die breiten Treffer entsprechen exakt dem Zufall.
+- Die drei Präzisionstreffer wurden über die Konstanten eingebaut.
+- Jede unabhängige Präzisionsprüfung geht daneben.
+
+Die Auswertung verschiebt die Wahrscheinlichkeit also nicht nach oben, eher etwas nach unten.
+
+**2. Die Physik passt nicht dazu.** Im Standardmodell sind viele dieser Massen keine festen Naturzahlen:
+
+- **Quarkmassen** hängen von der Energieskala und vom Rechenverfahren ab. Die „u-Quark-Masse 2,16 MeV“ gilt bei 2 GeV im sogenannten MS-bar-Schema, bei einer anderen Skala ist sie eine andere Zahl. Eine Formel, die *eine* feste Zahl dafür liefert, beschreibt also eine Konvention, keine Naturkonstante.
+- **Die Protonmasse** entsteht zu etwa 99 % aus der Bindungsenergie der starken Wechselwirkung, nicht aus den Quarkmassen. Sie lässt sich heute auf Supercomputern (Gitter-QCD) auf etwa 1 % genau aus der Theorie berechnen. Eine einfache π-Formel müsste diese ganze Dynamik zufällig nachbilden.
+
+**3. Die Vorgeschichte.** Es gibt eine lange Reihe solcher Zahlenspiele:
+
+- Eddington behauptete, die Feinstrukturkonstante sei genau 1/136, später 1/137.
+- Lenz bemerkte 6π⁵ ≈ mₚ/mₑ.
+- Dazu kommen unzählige ähnliche Formeln aus π, e und √2.
+
+Keine davon hat sich als echter Zusammenhang herausgestellt. Bei so vielen Versuchen entstehen zwangsläufig verblüffende Übereinstimmungen. Die einzige, die bis heute ernsthaft diskutiert wird, ist die Koide-Formel für die Massen der drei geladenen Leptonen, und auch sie ist nicht anerkannt.
+
+**4. Die Formel hat zu viele Freiheiten.** 7 Koeffizienten, 5 C-Werte, Paarungsregeln, handgewählte Konstanten und Sektoren nach Wahl: Mit so vielen Stellschrauben kann man fast alles darstellen. Je mehr eine Formel darstellen *kann*, desto weniger sagt es aus, wenn sie etwas darstellt.
+
+### Was ich fair einräume
+
+- **Die Neutron-Beobachtung ist hübsch.** Das schlichte Polynom (2π)⁴ + (2π)³ + (2π)² − 2π − 1 − (2π)⁻¹ landet auf 2,8·10⁻⁵ relativ an der Neutronenmasse. Einzeln betrachtet ist das ein 0,6 %-Zufall. Es bleibt aber eine einzige Übereinstimmung, ohne Vorhersage und ohne Erklärung, warum gerade diese Kombination.
+- **Die Auswertung prüft nur, was im Repo und im Paper steht.** Falls es ungeschriebene Regeln gibt, nach denen C und die Korrekturterme *zwingend* folgen, statt gewählt zu werden, wäre das ein neuer Ausgangspunkt. Davon habe ich aber nichts gefunden.
+
+### Was mich umstimmen würde
+
+Ich würde meine Einschätzung deutlich nach oben korrigieren, wenn alle drei Bedingungen erfüllt sind:
+
+1. **Feste Regeln:** Es gibt eine Vorschrift, die *vorher* festlegt, welches Tupel und welche Konstante zu welchem Teilchen gehört, ohne Auswahl nach dem Ergebnis.
+2. **Echte Vorhersagen:** Mit genau diesen Regeln trifft die Formel mehrere hochpräzise Werte, die nicht hineingesteckt wurden, zum Beispiel ¹H, Positronium, Myonium oder mₙ − mₚ, jeweils innerhalb der Messunsicherheit.
+3. **Bestätigung durch neue Messungen:** Am stärksten wäre es, wenn die Formel einen Wert vorhersagt, *bevor* er genauer gemessen wird, und die neue Messung ihn bestätigt.
+
+Das sind auch genau die Tests, die sich anbieten, wenn die Idee weiterverfolgt werden soll. Die Werkzeuge dafür liegen im Repo (`make eval`), und neue Kandidaten lassen sich in `src/polynome2pi/evaluation/nulltest.py` als zusätzliche „holdout“-Teilchen eintragen.
+
 ## Fazit
 
 Die Formel erzeugt ein so dichtes Zahlenspektrum, dass sie fast jede Masse „trifft“. Die drei hochpräzisen Treffer gehen auf Konstanten zurück, die genau für diese Teilchen gebaut wurden. Bei unabhängigen Präzisionstests versagt sie ausnahmslos.
 
 Damit die Theorie ernst genommen werden kann, müsste sie vorher festgelegte Regeln für C und die Korrekturterme haben. Mit diesen Regeln müsste sie dann Massen vorhersagen, die nicht in ihre Konstruktion eingeflossen sind, etwa Wasserstoff, Positronium oder mₙ − mₚ.
+
+Die Wahrscheinlichkeit, dass hier dennoch ein echter physikalischer Zusammenhang vorliegt, schätze ich auf deutlich unter 1 % (Abschnitt 10).
