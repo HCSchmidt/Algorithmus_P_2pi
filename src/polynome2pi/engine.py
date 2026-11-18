@@ -140,136 +140,120 @@ class ScanEngine:
 
     def run(self, particles: Dict[str, Particle]) -> ScanOutputs:
         preset = self.preset
-        model = self.model
-        
+
         i4_values = list(range(-2 * preset.J4, 2 * preset.J4 + 1))
         i3_values = list(range(-2 * preset.J3, 2 * preset.J3 + 1))
         i2_values = list(range(-2 * preset.J2, 2 * preset.J2 + 1))
+        grid_shape = (len(i4_values), len(i3_values), len(i2_values))
 
-        n_i4 = len(i4_values)
-        n_i3 = len(i3_values)
-        n_i2 = len(i2_values)
-
-        i4_to_idx = {v: idx for idx, v in enumerate(i4_values)}
-        i3_to_idx = {v: idx for idx, v in enumerate(i3_values)}
-        i2_to_idx = {v: idx for idx, v in enumerate(i2_values)}
-
-        any_match_grid = np.zeros((n_i4, n_i3, n_i2), dtype=int)
-        particle_match_grids = {k: np.zeros((n_i4, n_i3, n_i2), dtype=int) for k in particles.keys()}
-
-        # One accumulator per particle (replaces nested dicts and separate buffers)
+        any_match_grid = np.zeros(grid_shape, dtype=int)
+        particle_match_grids = {k: np.zeros(grid_shape, dtype=int) for k in particles}
         accumulators: Dict[str, ParticleAccumulator] = {
-            key: ParticleAccumulator(
-                particle=p,
-                bins=BinStore(_by_m={}),
-                xs=[],
-                ys=[],
-            )
+            key: ParticleAccumulator(particle=p, bins=BinStore(_by_m={}), xs=[], ys=[])
             for key, p in particles.items()
         }
-
-        # counts per m (legacy used Cnt[mmax], here: counts per m directly)
         m_counts = np.zeros(520, dtype=int)
-
-        # grey segments for unmatched scan points
         unmatched_segments: List[Tuple[Tuple[int, float], Tuple[int, float]]] = []
-
-        total_combinations_evaluated = 0
         total_particle_hits = 0
-        scan_index = 0  # index over accepted (E0>=0 and sector-cut) scan points
+        scan_index = 0
 
-        # hot locals
-        energy = model.energy
-        m_index = self._m_index
+        # One chunk per i4 value keeps memory bounded and preserves scan order.
+        for gi4, i4 in enumerate(i4_values):
+            chunk = self._scan_chunk(i4, i3_values, i2_values)
+            if chunk is None:
+                continue
+            E, coeffs, grid_idx, m = chunk
+            n = len(E)
+            scan_ids = np.arange(scan_index + 1, scan_index + n + 1)
+            scan_index += n
 
-        # scan loop (mirrors legacy ranges)
-        for i4 in i4_values:
-            for i3 in i3_values:
-                for i2 in i2_values:
-                    for i1 in range(-6, 7):
-                        for i0 in range(-6, 7):
-                            for i_minus1 in range(-6, 7):
-                                for C in range(-2, 3):
-                                    # legacy uses halves
-                                    E0 = energy(
-                                        i4 / 2,
-                                        i3 / 2,
-                                        i2 / 2,
-                                        i1 / 2,
-                                        i0 / 2,
-                                        i_minus1 / 2,
-                                        C / 2,
-                                    )
-                                    total_combinations_evaluated += 1
-                                    if E0 < 0:
-                                        continue
+            m_count_at_point = self._running_counts(m, m_counts)
 
-                                    # sector-specific cuts (legacy-like)
-                                    if preset.sector.value == "heavy" and E0 < 1500:
-                                        continue
-                                    if preset.sector.value == "nucleon" and (
-                                        E0 < 1836 or E0 > 1839
-                                    ):
-                                        continue
+            matched_any = np.zeros(n, dtype=bool)
+            for pkey, acc in accumulators.items():
+                p = acc.particle
+                diff = E - p.theory_E
+                hit = (diff <= p.sd_plus) & (diff >= p.sd_minus)
+                idx = np.flatnonzero(hit)
+                if idx.size == 0:
+                    continue
+                matched_any |= hit
+                total_particle_hits += int(idx.size)
+                np.add.at(particle_match_grids[pkey], (gi4, grid_idx[0][idx], grid_idx[1][idx]), 1)
+                for i_T, mm, e, c, cnt in zip(
+                    scan_ids[idx].tolist(),
+                    m[idx].tolist(),
+                    E[idx].tolist(),
+                    coeffs[idx].tolist(),
+                    m_count_at_point[idx].tolist(),
+                ):
+                    acc.record_match(i_T=i_T, m=mm, E0=e, coeffs=tuple(c), m_count=cnt)
 
-                                    scan_index += 1
-                                    m = m_index(i4, i3, i2)
-                                    if 0 <= m < len(m_counts):
-                                        m_counts[m] += 1
+            hit_idx = np.flatnonzero(matched_any)
+            np.add.at(any_match_grid, (gi4, grid_idx[0][hit_idx], grid_idx[1][hit_idx]), 1)
 
-                                    gi4 = i4_to_idx[i4]
-                                    gi3 = i3_to_idx[i3]
-                                    gi2 = i2_to_idx[i2]
-                                    coeffs: Coeff7 = (i4, i3, i2, i1, i0, i_minus1, C)
-                                    matched_particles = []  # collect which particles matched
-
-
-                                    # match against particles
-                                    matched_any = False
-                                    for pkey, acc in accumulators.items():
-                                        p = acc.particle
-                                        # allowing tolerance window around theory_E
-                                        if (E0 - p.theory_E) <= p.sd_plus and (
-                                            E0 - p.theory_E
-                                        ) >= p.sd_minus:
-                                            matched_any = True
-                                            matched_particles.append(pkey)
-
-                                            total_particle_hits += 1
-
-                                            acc.record_match(
-                                                i_T=scan_index,
-                                                m=m,
-                                                E0=E0,
-                                                coeffs=coeffs,
-                                                m_count=int(m_counts[m]),
-                                            )
-
-                                    if matched_any:
-                                        any_match_grid[gi4, gi3, gi2] += 1
-                                        for pkey in matched_particles:
-                                            particle_match_grids[pkey][gi4, gi3, gi2] += 1
-                                    else:
-                                        unmatched_segments.append(((scan_index, E0), (scan_index + 1, E0)))
-
-        bins_by_particle: Dict[str, List[BinResult]] = {
-            key: acc.bins.values_sorted() for key, acc in accumulators.items()
-        }
-
-        matched_points: Dict[str, Tuple[List[int], List[float]]] = {
-            key: (acc.xs, acc.ys) for key, acc in accumulators.items()
-        }
+            miss_idx = np.flatnonzero(~matched_any)
+            unmatched_segments.extend(
+                ((s, e), (s + 1, e))
+                for s, e in zip(scan_ids[miss_idx].tolist(), E[miss_idx].tolist())
+            )
 
         return ScanOutputs(
-            matched_points=matched_points,
+            matched_points={key: (acc.xs, acc.ys) for key, acc in accumulators.items()},
             unmatched_segments=unmatched_segments,
-            bins_by_particle=bins_by_particle,
-            accepted_scan_points=scan_index,  # comparable to legacy “possible ET” after cuts
+            bins_by_particle={key: acc.bins.values_sorted() for key, acc in accumulators.items()},
+            accepted_scan_points=scan_index,
             total_particle_hits=total_particle_hits,
-            grid_shape=(n_i4, n_i3, n_i2),
+            grid_shape=grid_shape,
             grid_i4_values=i4_values,
             grid_i3_values=i3_values,
             grid_i2_values=i2_values,
             any_match_grid=any_match_grid,
             particle_match_grids=particle_match_grids,
         )
+
+    def _scan_chunk(self, i4: int, i3_values: List[int], i2_values: List[int]):
+        """Energies of all accepted points with this i4, in legacy loop order."""
+        f = np.arange(-6, 7)
+        c = np.arange(-2, 3)
+        g3, g2, g1, g0, gm1, gc = (
+            a.ravel()
+            for a in np.meshgrid(
+                np.arange(len(i3_values)), np.arange(len(i2_values)), f, f, f, c, indexing="ij"
+            )
+        )
+        i3 = np.asarray(i3_values)[g3]
+        i2 = np.asarray(i2_values)[g2]
+        i4_arr = np.full_like(i3, i4)
+
+        E = self.model.energies(i4_arr / 2, i3 / 2, i2 / 2, g1 / 2, g0 / 2, gm1 / 2, gc / 2)
+
+        accepted = ~(E < 0)
+        # sector-specific cuts (legacy-like); note these compare against preset
+        # names, not ScanSector values, so they never trigger with the current enum.
+        sector = self.preset.sector.value
+        if sector == "heavy":
+            accepted &= ~(E < 1500)
+        if sector == "nucleon":
+            accepted &= ~((E < 1836) | (E > 1839))
+
+        idx = np.flatnonzero(accepted)
+        if idx.size == 0:
+            return None
+        coeffs = np.stack([i4_arr, i3, i2, g1, g0, gm1, gc], axis=1)[idx]
+        m = 256 + 32 * i4 + 4 * i3[idx] + i2[idx]
+        return E[idx], coeffs, (g3[idx], g2[idx]), m
+
+    @staticmethod
+    def _running_counts(m: np.ndarray, m_counts: np.ndarray) -> np.ndarray:
+        """Per point: how often its m has been seen so far (inclusive). Updates m_counts."""
+        if m.min() < 0 or m.max() >= len(m_counts):
+            raise ValueError("m index out of legacy range")
+        order = np.argsort(m, kind="stable")
+        sorted_m = m[order]
+        group_start = np.r_[0, np.flatnonzero(np.diff(sorted_m)) + 1]
+        rank = np.arange(len(m)) - np.repeat(group_start, np.diff(np.r_[group_start, len(m)]))
+        counts = np.empty_like(m)
+        counts[order] = m_counts[sorted_m] + rank + 1
+        np.add.at(m_counts, m, 1)
+        return counts

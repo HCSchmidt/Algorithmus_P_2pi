@@ -1,0 +1,14 @@
+random targets: n=20000 hit_rate=0.649 expected=0.653
+table particles in range: n=26 hit_rate=0.962 expected=0.824
+base null: sharp targets=['deuterium_atom', 'deuteron', 'electron_exact', 'hydrogen_1H', 'muon', 'muonium', 'neutron', 'positronium', 'proton']
+  2π: sharp_hits=3 median best_rel=3.29e-08
+  other bases (n=206): mean sharp_hits=0.005, max=1, p(hits>=2π)=0.0000
+  base 6=6.00000: sharp_hits=0
+  base 2e=5.43656: sharp_hits=0
+  base π+3=6.14159: sharp_hits=0
+  base √40=6.32456: sharp_hits=0
+  base 6.5=6.50000: sharp_hits=0
+  base 7=7.00000: sharp_hits=0
+tuning capacity base=2π: 0.935 of 200 random targets hit at proton precision
+tuning capacity base=6.5: 0.690 of 200 random targets hit at proton precision
+tuning capacity base=random: 0.865 of 200 random targets hit at proton precision

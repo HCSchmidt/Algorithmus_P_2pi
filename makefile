@@ -17,7 +17,7 @@
 #   install = for running
 #   build   = for packaging
 
-.PHONY: venv install run build test clean
+.PHONY: venv install run build test eval clean
 
 # Create a local Python virtual environment in .venv/
 venv:
@@ -38,6 +38,10 @@ build:
 # Run tests; installs pytest if needed)
 test:
 	. .venv/bin/activate && pip install -U pytest && pytest -q
+
+# Run the null-hypothesis evaluation (writes results/evaluation/)
+eval:
+	. .venv/bin/activate && python -m polynome2pi.evaluation.run_all
 
 # Remove build artifacts and caches
 clean:
